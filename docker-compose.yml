@@ -1,0 +1,63 @@
+version: '3.8'
+
+services:
+  mongo:
+    image: mongo:latest
+    container_name: alumni_mongo
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: admin123
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - alumni_network
+
+  nlp-service:
+    build: ./nlp-service
+    container_name: alumni_nlp
+    ports:
+      - "5001:5001"
+    environment:
+      - FLASK_ENV=production
+    networks:
+      - alumni_network
+    depends_on:
+      - mongo
+
+  backend:
+    build: ./server
+    container_name: alumni_backend
+    ports:
+      - "5000:5000"
+    environment:
+      - MONGO_URI=mongodb://mongo:27017/alumni_chat
+      - JWT_SECRET=supersecretkey
+      - NLP_SERVICE_URL=http://nlp-service:5001
+      - SIMILARITY_THRESHOLD=0.80
+      - NODE_ENV=production
+    depends_on:
+      - mongo
+      - nlp-service
+    networks:
+      - alumni_network
+
+  frontend:
+    build: ./client
+    container_name: alumni_frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_API_URL=http://localhost:5000/api
+    depends_on:
+      - backend
+    networks:
+      - alumni_network
+
+volumes:
+  mongo_data:
+
+networks:
+  alumni_network:
+    driver: bridge
