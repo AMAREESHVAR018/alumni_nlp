@@ -74,7 +74,7 @@ export const AuthProvider = ({ children }) => {
     try {
       setError(null);
       const response = await authAPI.login({ email, password });
-      const { token, user } = response.data;
+      const { token, user } = response.data.data;
       
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(user));
@@ -117,7 +117,7 @@ export const AuthProvider = ({ children }) => {
     try {
       setError(null);
       const response = await authAPI.register(data);
-      const { token, user } = response.data;
+      const { token, user } = response.data.data;
       
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(user));
@@ -127,9 +127,23 @@ export const AuthProvider = ({ children }) => {
       console.log(`[AUTH] Registration successful: ${user.name} (${user.role})`);
       return { success: true };
     } catch (error) {
-      const message = error.response?.data?.error?.message || 'Registration failed';
+      console.error('[AUTH] Registration failed:', error.response?.data || error);
+      
+      // Attempt to extract validation array or specific error messages from the backend
+      let message = 'Registration failed';
+      if (error.response?.data?.error?.details) {
+        // Validation errors usually return arrays in 'details' or 'message'
+        message = Array.isArray(error.response.data.error.details) 
+          ? error.response.data.error.details.join(', ')
+          : error.response.data.error.details;
+      } else if (error.response?.data?.error?.message) {
+        const errorMsg = error.response.data.error.message;
+        message = Array.isArray(errorMsg) ? errorMsg.join(', ') : errorMsg;
+      } else if (error.response?.data?.message) {
+         message = error.response.data.message;
+      }
+      
       setError(message);
-      console.error('[AUTH] Registration failed:', message);
       return { success: false, message };
     }
   };

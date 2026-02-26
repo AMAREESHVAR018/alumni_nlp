@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { jobAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
 const JobDetail = () => {
   const { id } = useParams();
-  const navigate = useNavigate();
   const { user } = useAuth();
   const [job, setJob] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [showApplyForm, setShowApplyForm] = useState(false);
   const [resumeLink, setResumeLink] = useState('');
   const [coverLetter, setCoverLetter] = useState('');
@@ -17,15 +17,18 @@ const JobDetail = () => {
 
   useEffect(() => {
     fetchJob();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const fetchJob = async () => {
     try {
       setLoading(true);
+      setError(null);
       const response = await jobAPI.getJob(id);
-      setJob(response.data);
+      setJob(response.data.data);
     } catch (error) {
       console.error('Error fetching job:', error);
+      setError('Failed to load job details');
     } finally {
       setLoading(false);
     }
@@ -59,12 +62,17 @@ const JobDetail = () => {
   const isExpired = new Date(job.deadline) < new Date();
 
   return (
-    <div className="min-h-screen bg-gray-100 py-8">
-      <div className="max-w-4xl mx-auto">
+    <>
         <Link to="/jobs" className="text-blue-500 hover:text-blue-700 mb-4 block">← Back to Jobs</Link>
 
+        {error && (
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6 text-center">
+            {error}
+          </div>
+        )}
+
         {/* Job Header */}
-        <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+        <div className="bg-white rounded-xl shadow-md hover:shadow-lg transition p-6 mb-6">
           <div className="flex justify-between items-start mb-4">
             <div>
               <h1 className="text-3xl font-bold text-gray-800 mb-2">{job.title}</h1>
@@ -113,7 +121,7 @@ const JobDetail = () => {
         </div>
 
         {/* Job Description */}
-        <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+        <div className="bg-white rounded-xl shadow-md hover:shadow-lg transition p-6 mb-6">
           <h2 className="text-2xl font-bold text-gray-800 mb-4">Job Description</h2>
           <p className="text-gray-700 whitespace-pre-wrap mb-6">{job.description}</p>
 
@@ -124,11 +132,11 @@ const JobDetail = () => {
             </div>
           )}
 
-          {job.skills_required && job.skills_required.length > 0 && (
+          {job.skills_required && job.skills_required?.length > 0 && (
             <div className="mb-6">
               <h3 className="text-xl font-bold text-gray-800 mb-3">Required Skills</h3>
               <div className="flex flex-wrap gap-2">
-                {job.skills_required.map((skill, idx) => (
+                {job.skills_required?.map((skill, idx) => (
                   <span key={idx} className="bg-blue-100 text-blue-800 px-3 py-1 rounded">
                     {skill}
                   </span>
@@ -137,11 +145,11 @@ const JobDetail = () => {
             </div>
           )}
 
-          {job.benefits && job.benefits.length > 0 && (
+          {job.benefits && job.benefits?.length > 0 && (
             <div>
               <h3 className="text-xl font-bold text-gray-800 mb-3">Benefits</h3>
               <ul className="list-disc list-inside text-gray-700">
-                {job.benefits.map((benefit, idx) => (
+                {job.benefits?.map((benefit, idx) => (
                   <li key={idx}>{benefit}</li>
                 ))}
               </ul>
@@ -150,7 +158,7 @@ const JobDetail = () => {
         </div>
 
         {/* Posted By */}
-        <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+        <div className="bg-white rounded-xl shadow-md hover:shadow-lg transition p-6 mb-6">
           <h2 className="text-2xl font-bold text-gray-800 mb-4">Posted By</h2>
           <div className="flex items-center gap-4">
             <div>
@@ -170,12 +178,12 @@ const JobDetail = () => {
               <button
                 onClick={() => setShowApplyForm(true)}
                 disabled={hasApplied}
-                className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {hasApplied ? '✓ Already Applied' : 'Apply for This Job'}
               </button>
             ) : (
-              <div className="bg-white rounded-lg shadow-lg p-6">
+              <div className="bg-white rounded-xl shadow-md hover:shadow-lg transition p-6">
                 <h2 className="text-2xl font-bold text-gray-800 mb-4">Apply for {job.title}</h2>
                 <form onSubmit={handleApply} className="space-y-4">
                   <div>
@@ -203,7 +211,7 @@ const JobDetail = () => {
                     <button
                       type="submit"
                       disabled={applyLoading}
-                      className="flex-1 bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-lg disabled:opacity-50"
+                      className="flex-1 bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg transition-lg disabled:opacity-50"
                     >
                       {applyLoading ? 'Submitting...' : 'Submit Application'}
                     </button>
@@ -223,13 +231,12 @@ const JobDetail = () => {
 
         {user?.role === 'alumni' && (
           <Link to={`/job/${id}/applications`} className="block">
-            <button className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 rounded-lg">
+            <button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition">
               View Applications
             </button>
           </Link>
         )}
-      </div>
-    </div>
+    </>
   );
 };
 

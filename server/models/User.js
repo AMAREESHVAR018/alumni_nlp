@@ -50,7 +50,7 @@ const userSchema = new mongoose.Schema({
 // Used by: Login queries (find user by email)
 // Performance: Without index: O(n) scan, With index: O(log n) lookup
 // Impact: ~100-200x faster for login
-userSchema.index({ email: 1 }, { unique: true, sparse: true });
+// userSchema.index({ email: 1 }, { unique: true, sparse: true });
 
 // Role index
 // Used by: Alumni filtering, student filtering

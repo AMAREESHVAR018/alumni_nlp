@@ -46,7 +46,7 @@ const Register = () => {
       email: formData.email,
       password: formData.password,
       role,
-      domain: formData.domain,
+      domain: formData.domain || undefined, // Send undefined if empty so backend decides based on schema
     };
 
     if (role === 'alumni') {
@@ -74,13 +74,18 @@ const Register = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-r from-blue-500 to-green-500 py-8">
-      <div className="max-w-md mx-auto bg-white rounded-lg shadow-lg p-8">
+      <div className="max-w-md mx-auto bg-white rounded-xl shadow-md p-8">
         <h1 className="text-3xl font-bold text-center mb-2 text-gray-800">Alumni Net</h1>
         <h2 className="text-2xl font-bold text-center mb-6 text-gray-700">Register</h2>
 
         {error && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-            {error}
+            <p className="font-bold mb-1">Registration failed</p>
+            <ul className="list-disc pl-5">
+              {error.split(', ').map((err, index) => (
+                <li key={index}>{err}</li>
+              ))}
+            </ul>
           </div>
         )}
 

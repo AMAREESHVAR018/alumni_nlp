@@ -31,7 +31,10 @@ app.use(helmet());
 // CORS - Allows cross-origin requests from frontend
 // Environment-aware: Can be restricted in production
 const corsOptions = {
-  origin: process.env.CORS_ORIGIN || "http://localhost:3000",
+  // In development, allow any origin (e.g. localhost:3001 if 3000 is occupied). Otherwise, rely on env.
+  origin: process.env.NODE_ENV === "development" 
+    ? true 
+    : (process.env.CORS_ORIGIN || "http://localhost:3000"),
   credentials: true,
   optionsSuccessStatus: 200
 };

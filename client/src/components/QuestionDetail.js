@@ -1,28 +1,31 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { questionAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
 const QuestionDetail = () => {
   const { id } = useParams();
-  const navigate = useNavigate();
   const { user } = useAuth();
   const [question, setQuestion] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [answerText, setAnswerText] = useState('');
   const [answerLoading, setAnswerLoading] = useState(false);
 
   useEffect(() => {
     fetchQuestion();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const fetchQuestion = async () => {
     try {
       setLoading(true);
+      setError(null);
       const response = await questionAPI.getQuestion(id);
-      setQuestion(response.data);
+      setQuestion(response.data.data);
     } catch (error) {
       console.error('Error fetching question:', error);
+      setError('Failed to load question details');
     } finally {
       setLoading(false);
     }
@@ -51,12 +54,17 @@ const QuestionDetail = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 py-8">
-      <div className="max-w-4xl mx-auto">
+    <>
         <Link to="/questions" className="text-blue-500 hover:text-blue-700 mb-4 block">← Back to Questions</Link>
 
+        {error && (
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6 text-center">
+            {error}
+          </div>
+        )}
+
         {/* Question */}
-        <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+        <div className="bg-white rounded-xl shadow-md hover:shadow-lg transition p-6 mb-6">
           <h1 className="text-3xl font-bold text-gray-800 mb-4">{question.question_text}</h1>
           
           <div className="flex gap-3 mb-4">
@@ -82,7 +90,7 @@ const QuestionDetail = () => {
 
         {/* Answer Section */}
         {question.isAnswered && question.answer_text && (
-          <div className="bg-white rounded-lg shadow-lg p-6 mb-6 border-l-4 border-green-500">
+          <div className="bg-white rounded-xl shadow-md hover:shadow-lg transition p-6 mb-6 border-l-4 border-green-500">
             <h2 className="text-2xl font-bold text-gray-800 mb-4">✓ Answer</h2>
             <p className="text-gray-700 mb-4 whitespace-pre-wrap">{question.answer_text}</p>
             <div className="border-t pt-4 text-gray-600 text-sm">
@@ -92,7 +100,7 @@ const QuestionDetail = () => {
             <div className="mt-4">
               <button
                 onClick={() => questionAPI.markHelpful(id)}
-                className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition"
               >
                 👍 Mark as Helpful
               </button>
@@ -102,7 +110,7 @@ const QuestionDetail = () => {
 
         {/* Answer Form (for assigned alumni) */}
         {!question.isAnswered && question.assigned_to?._id === user?.id && (
-          <div className="bg-white rounded-lg shadow-lg p-6">
+          <div className="bg-white rounded-xl shadow-md hover:shadow-lg transition p-6">
             <h2 className="text-2xl font-bold text-gray-800 mb-4">Provide Answer</h2>
             <form onSubmit={handleSubmitAnswer} className="space-y-4">
               <div>
@@ -119,7 +127,7 @@ const QuestionDetail = () => {
               <button
                 type="submit"
                 disabled={answerLoading}
-                className="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-lg disabled:opacity-50"
+                className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg transition-lg disabled:opacity-50"
               >
                 {answerLoading ? 'Submitting...' : 'Submit Answer'}
               </button>
@@ -132,8 +140,7 @@ const QuestionDetail = () => {
             <p className="text-yellow-800">This question is pending. An alumnus will be assigned to answer it soon.</p>
           </div>
         )}
-      </div>
-    </div>
+    </>
   );
 };
 

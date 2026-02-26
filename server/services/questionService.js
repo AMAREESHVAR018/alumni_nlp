@@ -356,6 +356,10 @@ const searchQuestions = async (filters = {}, page = 1, limit = PAGINATION.DEFAUL
   // Build query
   const query = {};
 
+  if (filters.studentId) {
+    query.student_id = filters.studentId;
+  }
+
   if (filters.category && filters.category !== "All") {
     query.category = filters.category;
   }

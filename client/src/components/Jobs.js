@@ -5,6 +5,7 @@ import { jobAPI } from '../services/api';
 const Jobs = () => {
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [filters, setFilters] = useState({
     company: '',
     domain: '',
@@ -17,32 +18,34 @@ const Jobs = () => {
 
   useEffect(() => {
     fetchJobs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters]);
 
   const fetchJobs = async () => {
     try {
       setLoading(true);
+      setError(null);
       const response = await jobAPI.getAllJobs(filters);
-      setJobs(response.data.jobs);
-      setTotal(response.data.total);
+      setJobs(response.data.data || []);
+      setTotal(response.data.pagination?.total || 0);
     } catch (error) {
       console.error('Error fetching jobs:', error);
+      setError('Failed to load data');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 py-8">
-      <div className="max-w-6xl mx-auto">
+    <>
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-800">Job Opportunities</h1>
+          <h1 className="text-3xl font-bold">Job Opportunities</h1>
           <Link to="/dashboard" className="text-blue-500 hover:text-blue-700">Back</Link>
         </div>
 
         {/* Filters */}
-        <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+        <div className="bg-white rounded-xl shadow-md hover:shadow-lg transition p-6 mb-6">
           <h2 className="text-xl font-bold text-gray-800 mb-4">Filter Jobs</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
@@ -91,16 +94,22 @@ const Jobs = () => {
           </div>
         </div>
 
+        {error && (
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6 text-center">
+            {error}
+          </div>
+        )}
+
         {/* Jobs List */}
         {loading ? (
           <div className="text-center text-gray-500">Loading...</div>
-        ) : jobs.length === 0 ? (
+        ) : !jobs || jobs?.length === 0 ? (
           <div className="text-center text-gray-500">No jobs found</div>
         ) : (
           <div className="space-y-4">
-            {jobs.map((job) => (
+            {jobs?.map((job) => (
               <Link key={job._id} to={`/job/${job._id}`}>
-                <div className="bg-white rounded-lg shadow-lg p-6 hover:shadow-xl transition cursor-pointer">
+                <div className="bg-white rounded-xl shadow-md hover:shadow-lg transition p-6 cursor-pointer">
                   <div className="flex justify-between items-start mb-2">
                     <h3 className="text-2xl font-bold text-gray-800">{job.title}</h3>
                     <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded text-sm font-semibold">
@@ -143,7 +152,7 @@ const Jobs = () => {
                     <p className="text-sm text-gray-600">
                       Posted by <strong>{job.alumni_id?.name}</strong> ({job.alumni_id?.company})
                     </p>
-                    <button className="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded">
+                    <button className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg transition">
                       View & Apply
                     </button>
                   </div>
@@ -169,8 +178,7 @@ const Jobs = () => {
             ))}
           </div>
         )}
-      </div>
-    </div>
+    </>
   );
 };
 

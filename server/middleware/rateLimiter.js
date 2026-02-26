@@ -85,6 +85,8 @@ const store = new InMemoryStore();
  */
 const createRateLimiter = (keyPrefix, windowMs, max, message) => {
   return (req, res, next) => {
+    if (process.env.NODE_ENV === "development") return next();
+
     // Use IP address as key (can be customized for user ID)
     const key = `${keyPrefix}:${req.ip || req.connection.remoteAddress}`;
     const record = store.increment(key, windowMs);

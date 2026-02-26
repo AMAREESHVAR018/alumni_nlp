@@ -1,6 +1,6 @@
 require("dotenv").config();
 const app = require("./app");
-const mongoose = require("mongoose");
+const { connectToDatabase, isInMockMode, getConnectionStatus } = require("./config/database");
 
 /**
  * ============================================
@@ -13,7 +13,6 @@ const mongoose = require("mongoose");
 
 const requiredEnvVars = [
   "PORT",
-  "MONGO_URI",
   "JWT_SECRET",
   "NLP_SERVICE_URL",
   "NODE_ENV",
@@ -48,21 +47,21 @@ console.log(`📋 Running in: ${process.env.NODE_ENV} environment`);
 
 const PORT = process.env.PORT || 5000;
 
-mongoose
-  .connect(process.env.MONGO_URI, {
-    // Connection options for stability
-    maxPoolSize: 10,
-    minPoolSize: 2,
-    socketTimeoutMS: 45000,
-    serverSelectionTimeoutMS: 5000,
-  })
-  .then(() => {
-    console.log("✅ MongoDB Connected Successfully");
+// Smart connection with fallback
+const startServer = async () => {
+  try {
+    // Try multiple connection strategies
+    await connectToDatabase();
     
-    // Create necessary indexes
-    // In production, indexes should be created during deployment
-    // Future: Use MongoDB Atlas auto-indexing or explicit index creation script
+    const status = getConnectionStatus();
+    const modeStr = isInMockMode() ? '(MOCK MODE)' : '(REAL DB)';
     
+    console.log(`📊 Connection Status ${modeStr}:`, {
+      connected: status.isConnected,
+      mockMode: status.isMock,
+    });
+    
+    // Success - start Express server
     app.listen(PORT, () => {
       console.log(`✅ Server running on port ${PORT}`);
       console.log(`🔗 API Base: http://localhost:${PORT}/api`);
@@ -71,13 +70,21 @@ mongoose
       console.log("");
       console.log("Press Ctrl+C to stop the server");
     });
-  })
-  .catch((err) => {
-    console.error("❌ MongoDB Connection Failed");
-    console.error(err.message);
-    console.error("\nMake sure MongoDB is running and MONGO_URI is correct");
+    
+    return;
+  } catch (error) {
+    console.error("\n❌ Failed to start server");
+    console.error(`   Error: ${error.message}`);
+    console.error("🔍 Troubleshooting Steps:");
+    console.error("   1. Verify MongoDB is installed and running");
+    console.error("   2. Check IP is whitelisted (0.0.0.0/0)");
+    console.error("   3. Verify credentials");
+    console.error("   4. Try: https://www.mongodb.com/try/download/community");
+    console.error("   5. Force DNS flush: ipconfig /flushdns");
+    console.error("");
     process.exit(1);
-  });
+  }
+};
 
 /**
  * ============================================
@@ -90,23 +97,22 @@ mongoose
 
 process.on("SIGTERM", () => {
   console.log("\n📍 SIGTERM received, shutting down gracefully...");
-  mongoose.connection.close(() => {
-    console.log("✅ MongoDB connection closed");
-    process.exit(0);
-  });
+  process.exit(0);
 });
 
 process.on("SIGINT", () => {
   console.log("\n📍 SIGINT received, shutting down gracefully...");
-  mongoose.connection.close(() => {
-    console.log("✅ MongoDB connection closed");
-    process.exit(0);
-  });
+  process.exit(0);
 });
 
 /**
- * Future: Add monitoring and error tracking
- * - Winston logger for structured logging
- * - DataDog/Sentry for error tracking
- * - Prometheus metrics for system monitoring
+ * ============================================
+ * START SERVER
+ * ============================================
  */
+
+console.log("\n🚀 Starting Alumni Chat System Server...\n");
+startServer().catch((error) => {
+  console.error("Fatal Error:", error);
+  process.exit(1);
+});

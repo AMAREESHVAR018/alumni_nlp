@@ -1,36 +1,6 @@
-import axios from 'axios';
+import api from '../api/axios';
 
-/**
- * ============================================
- * API CONFIGURATION
- * ============================================
- * 
- * Environment-aware API configuration
- * Supports: Development, Testing, Production
- * 
- * Environment variables (.env or .env.local):
- * - REACT_APP_API_URL: Backend API base URL
- * - REACT_APP_API_TIMEOUT: Request timeout in ms
- * - REACT_APP_DEBUG: Enable debug logging
- * 
- * Default behavior:
- * Development: http://localhost:5000/api
- * Production: Uses REACT_APP_API_URL from environment
- */
-
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
-const API_TIMEOUT = parseInt(process.env.REACT_APP_API_TIMEOUT || '10000', 10);
 const DEBUG = process.env.REACT_APP_DEBUG === 'true';
-
-console.log(`[API Config] Base URL: ${API_BASE_URL}, Timeout: ${API_TIMEOUT}ms`);
-
-const api = axios.create({
-  baseURL: API_BASE_URL,
-  timeout: API_TIMEOUT,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
 
 /**
  * REQUEST INTERCEPTOR

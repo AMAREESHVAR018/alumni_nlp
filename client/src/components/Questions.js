@@ -5,6 +5,7 @@ import { questionAPI } from '../services/api';
 const Questions = () => {
   const [questions, setQuestions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [filters, setFilters] = useState({ status: '', category: '', page: 1, limit: 10 });
   const [showForm, setShowForm] = useState(false);
   const [newQuestion, setNewQuestion] = useState({ question_text: '', category: '', domain: '' });
@@ -13,16 +14,19 @@ const Questions = () => {
 
   useEffect(() => {
     fetchQuestions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters]);
 
   const fetchQuestions = async () => {
     try {
       setLoading(true);
+      setError(null);
       const response = await questionAPI.getAllQuestions(filters);
-      setQuestions(response.data.questions);
-      setTotal(response.data.total);
+      setQuestions(response.data.data || []);
+      setTotal(response.data.pagination?.total || 0);
     } catch (error) {
       console.error('Error fetching questions:', error);
+      setError('Failed to load data');
     } finally {
       setLoading(false);
     }
@@ -38,8 +42,8 @@ const Questions = () => {
       fetchQuestions();
       
       // Show notification
-      if (response.data.matched) {
-        alert(`Similar answer found! Similarity score: ${(response.data.similar_answer.similarity * 100).toFixed(1)}%`);
+      if (response.data.data?.matched) {
+        alert(`Similar answer found! Similarity score: ${(response.data.data.similarityScore * 100).toFixed(1)}%`);
       }
     } catch (error) {
       alert('Error submitting question: ' + (error.response?.data?.message || error.message));
@@ -49,11 +53,10 @@ const Questions = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 py-8">
-      <div className="max-w-6xl mx-auto">
+    <>
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-800">Questions & Answers</h1>
+          <h1 className="text-3xl font-bold">Questions & Answers</h1>
           <Link to="/dashboard" className="text-blue-500 hover:text-blue-700">Back</Link>
         </div>
 
@@ -61,12 +64,12 @@ const Questions = () => {
         {!showForm ? (
           <button
             onClick={() => setShowForm(true)}
-            className="mb-6 bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold"
+            className="mb-6 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg transition font-semibold"
           >
             + Ask a Question
           </button>
         ) : (
-          <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+          <div className="bg-white rounded-xl shadow-md hover:shadow-lg transition p-6 mb-6">
             <h2 className="text-2xl font-bold mb-4">Ask a Question</h2>
             <form onSubmit={handleAskQuestion} className="space-y-4">
               <div>
@@ -111,7 +114,7 @@ const Questions = () => {
                 <button
                   type="submit"
                   disabled={submitLoading}
-                  className="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-lg disabled:opacity-50"
+                  className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg transition-lg disabled:opacity-50"
                 >
                   {submitLoading ? 'Submitting...' : 'Submit Question'}
                 </button>
@@ -128,7 +131,7 @@ const Questions = () => {
         )}
 
         {/* Filters */}
-        <div className="bg-white rounded-lg shadow-lg p-4 mb-6 flex gap-4">
+        <div className="bg-white rounded-xl shadow-md p-4 mb-6 flex gap-4">
           <select
             value={filters.status}
             onChange={(e) => setFilters({ ...filters, status: e.target.value, page: 1 })}
@@ -152,16 +155,22 @@ const Questions = () => {
           </select>
         </div>
 
+        {error && (
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6 text-center">
+            {error}
+          </div>
+        )}
+
         {/* Questions List */}
         {loading ? (
           <div className="text-center text-gray-500">Loading...</div>
-        ) : questions.length === 0 ? (
+        ) : !questions || questions?.length === 0 ? (
           <div className="text-center text-gray-500">No questions found</div>
         ) : (
           <div className="space-y-4">
-            {questions.map((q) => (
+            {questions?.map((q) => (
               <Link key={q._id} to={`/question/${q._id}`}>
-                <div className="bg-white rounded-lg shadow-lg p-6 hover:shadow-xl transition">
+                <div className="bg-white rounded-xl shadow-md hover:shadow-lg transition p-6">
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
                       <h3 className="text-xl font-bold text-gray-800 mb-2">{q.question_text}</h3>
@@ -199,8 +208,7 @@ const Questions = () => {
             ))}
           </div>
         )}
-      </div>
-    </div>
+    </>
   );
 };
 
