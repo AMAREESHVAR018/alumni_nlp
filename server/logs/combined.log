@@ -14,3 +14,49 @@
 {"level":"info","message":"Socket disconnected: 6MHXn4AoDPx0P3ykAAAC (User: 699fdedb3302740d6d025830)","service":"mentor-bridge-api","timestamp":"2026-03-06T07:49:21.814Z"}
 {"level":"info","message":"[VECTOR DB] PINECONE_API_KEY not found. Falling back to local FAISS via NLP service.","service":"mentor-bridge-api","timestamp":"2026-03-06T07:51:42.669Z"}
 {"level":"info","message":"MongoDB connected successfully","service":"mentor-bridge-api","timestamp":"2026-03-06T07:51:43.249Z"}
+{"level":"info","message":"[VECTOR DB] PINECONE_API_KEY not found. Falling back to local FAISS via NLP service.","service":"mentor-bridge-api","timestamp":"2026-03-06T08:29:30.137Z"}
+{"level":"info","message":"MongoDB connected successfully","service":"mentor-bridge-api","timestamp":"2026-03-06T08:29:31.003Z"}
+{"level":"info","message":"[NLP] generateEmbedding - Attempt 1/2","service":"mentor-bridge-api","timestamp":"2026-03-06T08:30:51.400Z"}
+{"level":"info","message":"[NLP] generateEmbedding - Success on attempt 1","service":"mentor-bridge-api","timestamp":"2026-03-06T08:30:51.468Z"}
+{"level":"info","message":"[QUESTION] Generated embedding for question (384-dim) in 68ms","service":"mentor-bridge-api","timestamp":"2026-03-06T08:30:51.468Z"}
+{"level":"info","message":"[QUESTION] Querying Vector DB for semantic similarity...","service":"mentor-bridge-api","timestamp":"2026-03-06T08:30:51.468Z"}
+{"level":"info","message":"[QUESTION] Vector DB returned no matches.","service":"mentor-bridge-api","timestamp":"2026-03-06T08:30:51.476Z"}
+{"level":"info","message":"[QUESTION] QUESTION PROCESSING COMPLETE:\n  Status: pending\n  Embedding Generation: 68ms\n  Total Processing Time: 12ms\n  Question ID: 69aa90bb6344ef5309c43058","service":"mentor-bridge-api","timestamp":"2026-03-06T08:30:51.489Z"}
+{"level":"info","message":"Socket connected: F7JKG7pigh1-F7oXAAAC (User: 69aa90976344ef5309c43046)","service":"mentor-bridge-api","timestamp":"2026-03-06T08:30:55.269Z"}
+{"level":"info","message":"Socket disconnected: F7JKG7pigh1-F7oXAAAC (User: 69aa90976344ef5309c43046)","service":"mentor-bridge-api","timestamp":"2026-03-06T08:30:59.787Z"}
+{"level":"info","message":"[VECTOR DB] PINECONE_API_KEY not found. Falling back to local FAISS via NLP service.","service":"mentor-bridge-api","timestamp":"2026-03-06T08:39:46.784Z"}
+{"level":"info","message":"MongoDB connected successfully","service":"mentor-bridge-api","timestamp":"2026-03-06T08:39:47.707Z"}
+{"level":"info","message":"[VECTOR DB] PINECONE_API_KEY not found. Falling back to local FAISS via NLP service.","service":"mentor-bridge-api","timestamp":"2026-03-06T08:44:01.871Z"}
+{"level":"info","message":"MongoDB connected successfully","service":"mentor-bridge-api","timestamp":"2026-03-06T08:44:03.432Z"}
+{"level":"info","message":"[VECTOR DB] PINECONE_API_KEY not found. Falling back to local FAISS via NLP service.","service":"mentor-bridge-api","timestamp":"2026-03-06T08:44:28.130Z"}
+{"level":"info","message":"MongoDB connected successfully","service":"mentor-bridge-api","timestamp":"2026-03-06T08:44:29.080Z"}
+{"level":"info","message":"[VECTOR DB] PINECONE_API_KEY not found. Falling back to local FAISS via NLP service.","service":"mentor-bridge-api","timestamp":"2026-03-06T08:55:48.875Z"}
+{"level":"info","message":"MongoDB connected successfully","service":"mentor-bridge-api","timestamp":"2026-03-06T08:55:50.260Z"}
+{"level":"info","message":"Socket connected: jfBR92ljlAZDhiNgAAAC (User: 69aa96c33b4b7c9a7f338fa3)","service":"mentor-bridge-api","timestamp":"2026-03-06T08:57:08.808Z"}
+{"level":"info","message":"Socket disconnected: jfBR92ljlAZDhiNgAAAC (User: 69aa96c33b4b7c9a7f338fa3)","service":"mentor-bridge-api","timestamp":"2026-03-06T08:57:10.132Z"}
+{"level":"info","message":"[VECTOR DB] PINECONE_API_KEY not found. Falling back to local FAISS via NLP service.","service":"mentor-bridge-api","timestamp":"2026-03-06T08:57:26.152Z"}
+{"level":"info","message":"MongoDB connected successfully","service":"mentor-bridge-api","timestamp":"2026-03-06T08:57:26.668Z"}
+{"level":"info","message":"[VECTOR DB] PINECONE_API_KEY not found. Falling back to local FAISS via NLP service.","service":"mentor-bridge-api","timestamp":"2026-03-06T13:34:48.568Z"}
+{"level":"info","message":"MongoDB connected successfully","service":"mentor-bridge-api","timestamp":"2026-03-06T13:34:49.882Z"}
+{"level":"info","message":"Socket connected: O0k9PrWl4hLCw4saAAAC (User: 69aa96c33b4b7c9a7f338fa3)","service":"mentor-bridge-api","timestamp":"2026-03-06T13:35:11.883Z"}
+{"level":"info","message":"Socket disconnected: O0k9PrWl4hLCw4saAAAC (User: 69aa96c33b4b7c9a7f338fa3)","service":"mentor-bridge-api","timestamp":"2026-03-06T13:35:14.038Z"}
+{"level":"info","message":"Socket connected: ftPp-oBKS5TYzXpYAAAF (User: 69aa96c33b4b7c9a7f338fa3)","service":"mentor-bridge-api","timestamp":"2026-03-06T13:35:28.909Z"}
+{"level":"info","message":"Socket disconnected: ftPp-oBKS5TYzXpYAAAF (User: 69aa96c33b4b7c9a7f338fa3)","service":"mentor-bridge-api","timestamp":"2026-03-06T13:35:30.762Z"}
+{"level":"info","message":"Socket connected: mIDX1jXWEqeP_jaVAAAI (User: 69aa96c33b4b7c9a7f338fa3)","service":"mentor-bridge-api","timestamp":"2026-03-06T13:35:40.866Z"}
+{"level":"info","message":"Socket disconnected: mIDX1jXWEqeP_jaVAAAI (User: 69aa96c33b4b7c9a7f338fa3)","service":"mentor-bridge-api","timestamp":"2026-03-06T13:38:50.143Z"}
+{"level":"info","message":"Socket connected: Y4KSwcSGLSQXq9-4AAAL (User: 69aa96c33b4b7c9a7f338fa3)","service":"mentor-bridge-api","timestamp":"2026-03-06T13:38:50.669Z"}
+{"level":"info","message":"Socket disconnected: Y4KSwcSGLSQXq9-4AAAL (User: 69aa96c33b4b7c9a7f338fa3)","service":"mentor-bridge-api","timestamp":"2026-03-06T13:38:54.925Z"}
+{"level":"info","message":"[VECTOR DB] PINECONE_API_KEY not found. Falling back to local FAISS via NLP service.","service":"mentor-bridge-api","timestamp":"2026-03-06T13:39:25.912Z"}
+{"level":"info","message":"MongoDB connected successfully","service":"mentor-bridge-api","timestamp":"2026-03-06T13:39:26.565Z"}
+{"level":"info","message":"[VECTOR DB] PINECONE_API_KEY not found. Falling back to local FAISS via NLP service.","service":"mentor-bridge-api","timestamp":"2026-03-06T13:41:49.762Z"}
+{"level":"info","message":"MongoDB connected successfully","service":"mentor-bridge-api","timestamp":"2026-03-06T13:41:50.582Z"}
+{"level":"info","message":"Socket connected: FLTGNjzLC-J_CNOLAAAC (User: 69aa96c33b4b7c9a7f338fa3)","service":"mentor-bridge-api","timestamp":"2026-03-06T13:42:05.971Z"}
+{"level":"info","message":"Socket disconnected: FLTGNjzLC-J_CNOLAAAC (User: 69aa96c33b4b7c9a7f338fa3)","service":"mentor-bridge-api","timestamp":"2026-03-06T13:42:06.261Z"}
+{"level":"info","message":"[VECTOR DB] PINECONE_API_KEY not found. Falling back to local FAISS via NLP service.","service":"mentor-bridge-api","timestamp":"2026-03-06T13:42:30.834Z"}
+{"level":"info","message":"MongoDB connected successfully","service":"mentor-bridge-api","timestamp":"2026-03-06T13:42:31.465Z"}
+{"level":"info","message":"[VECTOR DB] PINECONE_API_KEY not found. Falling back to local FAISS via NLP service.","service":"mentor-bridge-api","timestamp":"2026-03-06T13:47:47.527Z"}
+{"level":"info","message":"MongoDB connected successfully","service":"mentor-bridge-api","timestamp":"2026-03-06T13:47:48.332Z"}
+{"level":"info","message":"Socket connected: Wx8vxCAhLkBHL7eYAAAC (User: 69aa96c33b4b7c9a7f338fa3)","service":"mentor-bridge-api","timestamp":"2026-03-06T13:48:28.819Z"}
+{"level":"info","message":"Socket disconnected: Wx8vxCAhLkBHL7eYAAAC (User: 69aa96c33b4b7c9a7f338fa3)","service":"mentor-bridge-api","timestamp":"2026-03-06T13:48:37.098Z"}
+{"level":"info","message":"[VECTOR DB] PINECONE_API_KEY not found. Falling back to local FAISS via NLP service.","service":"mentor-bridge-api","timestamp":"2026-03-06T13:53:47.228Z"}
+{"level":"info","message":"MongoDB connected successfully","service":"mentor-bridge-api","timestamp":"2026-03-06T13:53:47.778Z"}

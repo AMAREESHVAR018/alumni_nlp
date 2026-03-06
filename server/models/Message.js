@@ -6,6 +6,7 @@ const messageSchema = new mongoose.Schema({
   receiverId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   content: { type: String, required: true },
   isRead: { type: Boolean, default: false },
+  isAIResponse: { type: Boolean, default: false },
 }, { timestamps: true });
 
 messageSchema.index({ conversationId: 1, createdAt: -1 });

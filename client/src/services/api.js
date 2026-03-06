@@ -136,6 +136,7 @@ export const chatAPI = {
   getConversations: () => api.get('/chat/conversations'),
   getMessages: (conversationId) => api.get(`/chat/${conversationId}`),
   sendMessage: (data) => api.post('/chat', data),
+  markRead: (conversationId) => api.put(`/chat/${conversationId}/read`),
 };
 
 // Mentor APIs

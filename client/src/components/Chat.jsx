@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 import { format } from 'date-fns';
-import { Send, Users, Circle, MoreVertical } from 'lucide-react';
+import { Send, Users, Circle, MoreVertical, Sparkles } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { chatAPI } from '../services/api';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -17,6 +17,13 @@ const Chat = () => {
   const [onlineUsers, setOnlineUsers] = useState(new Set());
   const [typingUsers, setTypingUsers] = useState(new Map());
   const scrollRef = useRef();
+  // Ref to access selectedChat inside socket event callbacks without stale closure
+  const selectedChatRef = useRef(null);
+  const typingTimeoutRef = useRef(null);
+
+  useEffect(() => {
+    selectedChatRef.current = selectedChat;
+  }, [selectedChat]);
 
   // Initialize socket
   useEffect(() => {
@@ -28,9 +35,12 @@ const Chat = () => {
       newSocket.on('connect', () => console.log('Connected to chat server'));
 
       newSocket.on('receive_message', (message) => {
-        setMessages((prev) => [...prev, message]);
-        // Also update last message in conversation list
-        setConversations(prev => prev.map(c => 
+        // Only add to messages view if it belongs to the currently open conversation
+        if (selectedChatRef.current && message.conversationId === selectedChatRef.current._id) {
+          setMessages((prev) => [...prev, message]);
+        }
+        // Always update conversation list with latest message
+        setConversations(prev => prev.map(c =>
           c._id === message.conversationId ? { ...c, lastMessage: message, updatedAt: new Date() } : c
         ));
       });
@@ -47,7 +57,6 @@ const Chat = () => {
       newSocket.on('user_typing', ({ userId, conversationId }) => {
         setTypingUsers(prev => {
           const next = new Map(prev);
-          // Clear existing timeout for this user
           if (next.has(userId)) clearTimeout(next.get(userId).timeout);
           const timeout = setTimeout(() => {
             setTypingUsers(m => {
@@ -89,13 +98,15 @@ const Chat = () => {
     if (token) fetchConversations();
   }, [token]);
 
-  // Fetch messages when chat selected; also join the socket room for real-time updates
+  // Fetch messages and mark as read when conversation selected
   useEffect(() => {
     const fetchMessages = async () => {
       if (!selectedChat) return;
       try {
         const res = await chatAPI.getMessages(selectedChat._id);
         setMessages(res.data.data || []);
+        // Mark messages as read after loading
+        chatAPI.markRead(selectedChat._id).catch(() => {});
       } catch (err) {
         console.error("Failed to fetch messages", err);
         toast.error('Failed to load messages');
@@ -103,7 +114,6 @@ const Chat = () => {
     };
     fetchMessages();
 
-    // Join the conversation room so we receive scoped socket events
     if (socket && selectedChat) {
       socket.emit('join_conversation', { conversationId: selectedChat._id });
     }
@@ -118,21 +128,30 @@ const Chat = () => {
     e.preventDefault();
     if (!newMessage.trim() || !selectedChat) return;
 
-    // Use _id (MongoDB) — user.id is undefined for MongoDB documents
     const receiverId = selectedChat.participants.find(p => p._id !== user._id)?._id;
     if (!receiverId) return;
 
+    // Stop typing indicator
+    if (socket && selectedChat) {
+      socket.emit('stop_typing', { receiverId, conversationId: selectedChat._id });
+    }
+
     try {
       const res = await chatAPI.sendMessage({ receiverId, text: newMessage });
-
       const sentMsg = res.data.data;
-      setMessages(prev => [...prev, sentMsg]);
-      setConversations(prev => prev.map(c => 
-        c._id === selectedChat._id ? { ...c, lastMessage: sentMsg, updatedAt: new Date() } : c
+      const aiMsg = res.data.aiResponse;
+
+      setMessages(prev => {
+        const updated = [...prev, sentMsg];
+        if (aiMsg) updated.push(aiMsg);
+        return updated;
+      });
+
+      const lastMsg = aiMsg || sentMsg;
+      setConversations(prev => prev.map(c =>
+        c._id === selectedChat._id ? { ...c, lastMessage: lastMsg, updatedAt: new Date() } : c
       ));
 
-      // The backend already emits receive_message to the recipient via Socket.IO.
-      // No need to emit send_message from here to avoid duplicate delivery.
       setNewMessage('');
     } catch (err) {
       console.error("Failed to send message", err);
@@ -143,7 +162,15 @@ const Chat = () => {
   const handleTyping = (e) => {
     setNewMessage(e.target.value);
     if (socket && selectedChat) {
-      socket.emit('typing', { conversationId: selectedChat._id, userId: user._id });
+      const receiverId = selectedChat.participants.find(p => p._id !== user._id)?._id;
+      if (receiverId) {
+        socket.emit('typing', { conversationId: selectedChat._id, receiverId });
+        // Auto stop-typing after 2s of inactivity
+        clearTimeout(typingTimeoutRef.current);
+        typingTimeoutRef.current = setTimeout(() => {
+          socket.emit('stop_typing', { receiverId, conversationId: selectedChat._id });
+        }, 2000);
+      }
     }
   };
 
@@ -159,12 +186,12 @@ const Chat = () => {
           <h2 className="text-xl font-bold font-heading">Messages</h2>
           <button className="p-2 hover:bg-muted rounded-full transition-colors"><MoreVertical size={20} className="text-muted-foreground" /></button>
         </div>
-        
+
         <div className="flex-1 overflow-y-auto overflow-x-hidden">
           {conversations && conversations.length > 0 ? conversations.map((chat) => {
             const partner = getOtherUser(chat);
             return (
-              <motion.div 
+              <motion.div
                 whileHover={{ backgroundColor: 'var(--muted)' }}
                 key={chat._id}
                 onClick={() => setSelectedChat(chat)}
@@ -178,7 +205,7 @@ const Chat = () => {
                     <Circle size={12} className="absolute bottom-0 right-0 fill-green-500 text-green-500 bg-card rounded-full" />
                   )}
                 </div>
-                
+
                 <div className="flex-1 min-w-0">
                   <div className="flex justify-between items-baseline mb-1">
                     <h3 className="font-semibold text-foreground truncate">{partner?.name}</h3>
@@ -189,7 +216,7 @@ const Chat = () => {
                     )}
                   </div>
                   <p className="text-sm text-muted-foreground truncate">
-                    {chat.lastMessage ? chat.lastMessage.text : 'No messages yet'}
+                    {chat.lastMessage ? chat.lastMessage.content : 'No messages yet'}
                   </p>
                 </div>
               </motion.div>
@@ -225,29 +252,37 @@ const Chat = () => {
           <div className="flex-1 overflow-y-auto p-6 space-y-4">
             <AnimatePresence initial={false}>
               {messages.map((msg, index) => {
-                // Support both senderId (string) and populated sender object
                 const senderId = msg.senderId?._id || msg.senderId;
                 const isMe = senderId === user._id;
+                const isAI = msg.isAIResponse;
                 return (
                   <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     key={msg._id || index}
-                    className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}
+                    className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}
                   >
-                    <div 
+                    {isAI && (
+                      <span className="flex items-center gap-1 text-[10px] text-amber-500 font-medium mb-1 px-1">
+                        <Sparkles size={10} />
+                        AI auto-reply from knowledge base
+                      </span>
+                    )}
+                    <div
                       className={`max-w-[70%] px-4 py-2.5 rounded-2xl ${
-                        isMe 
-                          ? 'bg-primary text-primary-foreground rounded-br-sm' 
-                          : 'bg-muted text-foreground rounded-bl-sm border border-border'
+                        isMe
+                          ? 'bg-primary text-primary-foreground rounded-br-sm'
+                          : isAI
+                            ? 'bg-amber-50 text-amber-900 border border-amber-200 rounded-bl-sm dark:bg-amber-950/30 dark:text-amber-100 dark:border-amber-800'
+                            : 'bg-muted text-foreground rounded-bl-sm border border-border'
                       }`}
                     >
-                      <p className="text-[15px] leading-relaxed break-words">{msg.text}</p>
+                      <p className="text-[15px] leading-relaxed break-words">{msg.content}</p>
                       <span className={`text-[10px] flex items-center justify-end gap-1 mt-1 ${isMe ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
                         {format(new Date(msg.createdAt), 'h:mm a')}
                         {isMe && (
-                          <span title={msg.seen ? 'Read' : 'Sent'}>
-                            {msg.seen ? '✓✓' : '✓'}
+                          <span title={msg.isRead ? 'Read' : 'Sent'}>
+                            {msg.isRead ? '✓✓' : '✓'}
                           </span>
                         )}
                       </span>
@@ -289,8 +324,8 @@ const Chat = () => {
                 placeholder="Message..."
                 className="flex-1 bg-background border border-border rounded-full px-5 py-3 focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground transition-shadow"
               />
-              <button 
-                type="submit" 
+              <button
+                type="submit"
                 disabled={!newMessage.trim()}
                 className="bg-primary text-primary-foreground p-3 rounded-full hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
