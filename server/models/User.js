@@ -3,12 +3,13 @@ const mongoose = require("mongoose");
 const userSchema = new mongoose.Schema({
   name: { type: String, required: true },
   email: { type: String, unique: true, required: true, lowercase: true },
-  password: { type: String, required: true },
+  password: { type: String, required: true, select: false },
   role: { type: String, enum: ["student", "alumni", "admin"], required: true },
   
   // Profile fields for both
   bio: String,
   profilePicture: String,
+  avatar: String,       // spec-required alias (same semantic as profilePicture)
   
   // Alumni-specific fields
   company: String,
@@ -18,15 +19,22 @@ const userSchema = new mongoose.Schema({
   skills: [String],
   yearsOfExperience: Number,
   linkedinUrl: String,
+  linkedin: String,     // spec-required alias for linkedinUrl
   
   // Student-specific fields
   currentYear: Number,
   university: String,
   targetRoles: [String],
   interests: [String],
+  career_goals: String,
+  career_summary: String, // AI-generated or user-provided career summary for matching
   
+  // NLP embedding vector (384-dim, cached from sentence-transformers)
+  embedding_vector: { type: [Number], default: [] },
+
   // General
   phone: String,
+  isActive: { type: Boolean, default: true },
   isVerified: { type: Boolean, default: false },
   verificationToken: String,
   
@@ -46,17 +54,18 @@ const userSchema = new mongoose.Schema({
  *    Command: db.users.createIndex({ email: 1 }, { unique: true })
  */
 
-// CRITICAL: Email index (unique)
+// CRITICAL: Email index (unique) — also enforced via schema { unique: true }
 // Used by: Login queries (find user by email)
 // Performance: Without index: O(n) scan, With index: O(log n) lookup
 // Impact: ~100-200x faster for login
-// userSchema.index({ email: 1 }, { unique: true, sparse: true });
 
 // Role index
 // Used by: Alumni filtering, student filtering
 // Performance: Makes role-based queries fast
 // Impact: ~10-50x faster for role queries
+userSchema.index({ email: 1 }, { unique: true, sparse: true });
 userSchema.index({ role: 1 });
+userSchema.index({ skills: 1 });
 
 // Alumni domain index
 // Used by: Finding experts in specific domains

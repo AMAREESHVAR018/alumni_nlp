@@ -1,240 +1,132 @@
-const User = require("../models/User");
-const bcrypt = require("bcryptjs");
-const jwt = require("jsonwebtoken");
-const {
-  sendSuccess,
-  sendPaginated,
-  sendError,
-  sendValidationError,
-} = require("../utilities/responseHandler");
-const {
-  validateEmail,
-  validatePassword,
-} = require("../utilities/validators");
-const { USER_ROLES, PAGINATION, JWT_CONFIG, ERROR_CODES } = require("../constants");
+const authService = require("../services/authService");
+const { sendSuccess, sendPaginated, sendError, sendValidationError } = require("../utilities/responseHandler");
+const { validateEmail, validatePassword, escapeRegex } = require("../utilities/validators");
+const { USER_ROLES, PAGINATION } = require("../constants");
 const { asyncHandler } = require("../middleware/errorHandler");
 
-// Register new user
 exports.register = asyncHandler(async (req, res) => {
-  const {
-    name,
-    email,
-    password,
-    role,
-    company,
-    jobTitle,
-    graduationYear,
-    domain,
-    skills,
-    yearsOfExperience,
-    currentYear,
-    university,
-    targetRoles,
-    interests,
-  } = req.body;
-
-  // Validate required fields
+  const { name, email, password, role } = req.body;
   if (!name || !email || !password || !role) {
     return sendValidationError(res, "Name, email, password, and role are required");
   }
-
-  // Validate email format
+  if (name.trim().length < 2) {
+    return sendValidationError(res, "Name must be at least 2 characters");
+  }
   if (!validateEmail(email)) {
     return sendValidationError(res, "Invalid email format");
   }
-
-  // Validate password strength
   const passwordValidation = validatePassword(password);
   if (!passwordValidation.valid) {
     return sendValidationError(res, passwordValidation.errors);
   }
-
   if (!Object.values(USER_ROLES).includes(role)) {
     return sendValidationError(res, `Invalid role. Must be one of: ${Object.values(USER_ROLES).join(", ")}`);
   }
 
-  // Check if user already exists
-  const existingUser = await User.findOne({ email });
-  if (existingUser) {
-    return sendError(res, "User already exists", 409, ERROR_CODES.USER_EXISTS);
+  try {
+    const { token, expiresAt, refreshToken, user } = await authService.registerUser(req.body);
+    sendSuccess(res, { token, refreshToken, expiresAt, user: { id: user._id, name: user.name, email: user.email, role: user.role } }, "User registered successfully", 201);
+  } catch (error) {
+    if (error instanceof authService.AuthError) {
+      return sendError(res, error.message, error.status, error.code);
+    }
+    throw error;
   }
-
-  // Hash password
-  const hash = await bcrypt.hash(password, 10);
-
-  // Create user
-  const user = await User.create({
-    name: name.trim(),
-    email: email.toLowerCase(),
-    password: hash,
-    role,
-    company: role === USER_ROLES.ALUMNI ? company?.trim() : undefined,
-    jobTitle: role === USER_ROLES.ALUMNI ? jobTitle?.trim() : undefined,
-    graduationYear: role === USER_ROLES.ALUMNI ? graduationYear : undefined,
-    domain: domain?.trim(),
-    skills: role === USER_ROLES.ALUMNI ? skills : undefined,
-    yearsOfExperience: role === USER_ROLES.ALUMNI ? yearsOfExperience : undefined,
-    currentYear: role === USER_ROLES.STUDENT ? currentYear : undefined,
-    university: role === USER_ROLES.STUDENT ? university?.trim() : undefined,
-    targetRoles: role === USER_ROLES.STUDENT ? targetRoles : undefined,
-    interests: role === USER_ROLES.STUDENT ? interests : undefined,
-  });
-
-  // Generate token
-  const token = jwt.sign(
-    { id: user._id, role: user.role, email: user.email },
-    process.env.JWT_SECRET,
-    { expiresIn: JWT_CONFIG.EXPIRY }
-  );
-
-  sendSuccess(
-    res,
-    {
-      token,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-      },
-    },
-    "User registered successfully",
-    201
-  );
 });
 
-// Login user
 exports.login = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
-
   if (!email || !password) {
     return sendValidationError(res, "Email and password are required");
   }
 
-  const user = await User.findOne({ email: email.toLowerCase() });
-  if (!user) {
-    return sendError(res, "Invalid email or password", 401, ERROR_CODES.INVALID_CREDENTIALS);
-  }
-
-  const isPasswordValid = await bcrypt.compare(password, user.password);
-
-  if (!isPasswordValid) {
-    return sendError(res, "Invalid email or password", 401, ERROR_CODES.INVALID_CREDENTIALS);
-  }
-
-  const token = jwt.sign(
-    { id: user._id, role: user.role, email: user.email },
-    process.env.JWT_SECRET,
-    { expiresIn: JWT_CONFIG.EXPIRY }
-  );
-
-  sendSuccess(
-    res,
-    {
-      token,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-      },
-    },
-    "Login successful"
-  );
-});
-
-// Get user profile
-exports.getProfile = asyncHandler(async (req, res) => {
-  const user = await User.findById(req.user.id).select("-password");
-  if (!user) {
-    return sendError(res, "User not found", 404, ERROR_CODES.USER_NOT_FOUND);
-  }
-  sendSuccess(res, user);
-});
-
-// Update user profile
-exports.updateProfile = asyncHandler(async (req, res) => {
-  const { id } = req.user;
-  const updates = req.body;
-
-  // Prevent sensitive field changes
-  delete updates.password;
-  delete updates.email;
-  delete updates.role;
-
-  // Sanitize updates
-  Object.keys(updates).forEach((key) => {
-    if (typeof updates[key] === "string") {
-      updates[key] = updates[key].trim();
+  try {
+    const { token, expiresAt, refreshToken, user } = await authService.loginUser(email, password);
+    sendSuccess(res, { token, refreshToken, expiresAt, user: { id: user._id, name: user.name, email: user.email, role: user.role } }, "Login successful");
+  } catch (error) {
+    if (error instanceof authService.AuthError) {
+      return sendError(res, error.message, error.status, error.code);
     }
-  });
-
-  const user = await User.findByIdAndUpdate(id, updates, { new: true }).select(
-    "-password"
-  );
-
-  if (!user) {
-    return sendError(res, "User not found", 404, ERROR_CODES.USER_NOT_FOUND);
+    throw error;
   }
-
-  sendSuccess(res, user, "Profile updated successfully");
 });
 
-// Search alumni with filters
+exports.getProfile = asyncHandler(async (req, res) => {
+  try {
+    const user = await authService.getProfile(req.user.id);
+    sendSuccess(res, user);
+  } catch (error) {
+    if (error instanceof authService.AuthError) {
+      return sendError(res, error.message, error.status, error.code);
+    }
+    throw error;
+  }
+});
+
+exports.updateProfile = asyncHandler(async (req, res) => {
+  try {
+    const user = await authService.updateProfile(req.user.id, req.body);
+    sendSuccess(res, user, "Profile updated successfully");
+  } catch (error) {
+    if (error instanceof authService.AuthError) {
+      return sendError(res, error.message, error.status, error.code);
+    }
+    throw error;
+  }
+});
+
 exports.searchAlumni = asyncHandler(async (req, res) => {
-  const {
-    domain,
-    company,
-    skills,
-    graduationYear,
-    min_experience,
-    page = PAGINATION.DEFAULT_PAGE,
-    limit = PAGINATION.DEFAULT_LIMIT,
-  } = req.query;
-
-  const validLimit = Math.min(limit, PAGINATION.MAX_LIMIT);
-
+  const { q, domain, company, skills, graduationYear, min_experience, page = PAGINATION.DEFAULT_PAGE, limit = PAGINATION.DEFAULT_LIMIT } = req.query;
+  
   let filters = { role: USER_ROLES.ALUMNI };
-
-  if (domain) {
-    filters.domain = { $regex: domain, $options: "i" };
+  if (q) {
+    const escaped = escapeRegex(q.trim());
+    filters.$or = [
+      { name: { $regex: escaped, $options: 'i' } },
+      { bio: { $regex: escaped, $options: 'i' } },
+      { skills: { $regex: escaped, $options: 'i' } },
+      { company: { $regex: escaped, $options: 'i' } },
+      { jobTitle: { $regex: escaped, $options: 'i' } },
+    ];
   }
-
-  if (company) {
-    filters.company = { $regex: company, $options: "i" };
-  }
-
+  if (domain) filters.domain = { $regex: escapeRegex(domain), $options: "i" };
+  if (company && !q) filters.company = { $regex: escapeRegex(company), $options: "i" };
   if (skills) {
     const skillArray = Array.isArray(skills) ? skills : [skills];
     filters.skills = { $in: skillArray };
   }
+  if (graduationYear) filters.graduationYear = Number(graduationYear);
+  if (min_experience) filters.yearsOfExperience = { $gte: Number(min_experience) };
 
-  if (graduationYear) {
-    filters.graduationYear = Number(graduationYear);
-  }
-
-  if (min_experience) {
-    filters.yearsOfExperience = { $gte: Number(min_experience) };
-  }
-
-  const total = await User.countDocuments(filters);
-  const alumni = await User.find(filters)
-    .select("-password")
-    .limit(validLimit * 1)
-    .skip((page - 1) * validLimit)
-    .sort({ createdAt: -1 });
-
-  sendPaginated(res, alumni, total, page, validLimit);
+  const result = await authService.searchAlumni(filters, page, limit);
+  sendPaginated(res, result.alumni, result.total, result.page, result.validLimit);
 });
 
-// Get alumni by ID
 exports.getAlumni = asyncHandler(async (req, res) => {
-  const { id } = req.params;
-  const alumni = await User.findById(id).select("-password");
+  try {
+    const alumni = await authService.getAlumni(req.params.id);
+    sendSuccess(res, alumni);
+  } catch (error) {
+    if (error instanceof authService.AuthError) {
+      return sendError(res, error.message, error.status, error.code);
+    }
+    throw error;
+  }
+});
 
-  if (!alumni || alumni.role !== USER_ROLES.ALUMNI) {
-    return sendError(res, "Alumni not found", 404, ERROR_CODES.USER_NOT_FOUND);
+exports.refreshToken = asyncHandler(async (req, res) => {
+  const { refreshToken } = req.body;
+  if (!refreshToken) {
+    return sendValidationError(res, "Refresh token is required");
   }
 
-  sendSuccess(res, alumni);
+  try {
+    const { token, expiresAt } = await authService.refreshAccessToken(refreshToken);
+    sendSuccess(res, { token, expiresAt }, "Token refreshed successfully");
+  } catch (error) {
+    if (error instanceof authService.AuthError) {
+      return sendError(res, error.message, error.status, error.code);
+    }
+    throw error;
+  }
 });

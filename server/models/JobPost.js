@@ -14,6 +14,7 @@ const jobSchema = new mongoose.Schema({
   domain: String, // e.g., "Software Engineering", "Data Science"
   category: { type: String, enum: ["internship", "job", "contract"], required: true },
   is_active: { type: Boolean, default: true },
+  applicants: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }], // spec-required
   applications_count: { type: Number, default: 0 },
   views_count: { type: Number, default: 0 },
   benefits: [String],
@@ -34,6 +35,9 @@ const jobSchema = new mongoose.Schema({
 // Used by: Get jobs posted by specific alumni (/jobs/my-jobs)
 // Performance: ~10-30x faster
 jobSchema.index({ alumni_id: 1 });
+
+// Company search index (spec-required)
+jobSchema.index({ company: 1 });
 
 // Experience level search index
 // Query: db.jobposts.find({ experience_level: X, is_active: true })

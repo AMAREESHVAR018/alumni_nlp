@@ -119,6 +119,30 @@ export const authAPI = {
   getAlumni: (id) => api.get(`/auth/alumni/${id}`),
 };
 
+// Features APIs
+export const featuresAPI = {
+  stats: () => api.get('/features/stats'),
+  activity: () => api.get('/features/activity'),
+  trending: () => api.get('/features/trending'),
+  notifications: () => api.get('/features/notifications'),
+  aiAdvice: () => api.get('/features/ai-advice'),
+  leaderboard: () => api.get('/features/leaderboard'),
+  bookMentor: (data) => api.post('/features/book-mentor', data),
+  bookings: () => api.get('/features/bookings'),
+};
+
+// Chat APIs
+export const chatAPI = {
+  getConversations: () => api.get('/chat/conversations'),
+  getMessages: (conversationId) => api.get(`/chat/${conversationId}`),
+  sendMessage: (data) => api.post('/chat', data),
+};
+
+// Mentor APIs
+export const mentorAPI = {
+  getRecommendations: (userId) => api.get(`/mentors/recommendations/${userId}`),
+};
+
 // Question APIs
 export const questionAPI = {
   ask: (data) => api.post('/questions', data),

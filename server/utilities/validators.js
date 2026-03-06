@@ -54,6 +54,11 @@ const validateQuestionText = (text) => {
     return { valid: false, error: "Question cannot exceed 5000 characters" };
   }
 
+  // Reject common XSS / script-injection patterns
+  if (/<script[\s\S]*?>|javascript\s*:|on\w+\s*=/i.test(text)) {
+    return { valid: false, error: "Question contains disallowed content" };
+  }
+
   return { valid: true, error: null };
 };
 
@@ -73,6 +78,11 @@ const validateAnswerText = (text) => {
 
   if (text.length > 10000) {
     return { valid: false, error: "Answer cannot exceed 10000 characters" };
+  }
+
+  // Reject common XSS / script-injection patterns
+  if (/<script[\s\S]*?>|javascript\s*:|on\w+\s*=/i.test(text)) {
+    return { valid: false, error: "Answer contains disallowed content" };
   }
 
   return { valid: true, error: null };
@@ -143,6 +153,13 @@ const validateJobApplication = (appData) => {
   };
 };
 
+/**
+ * Escape special regex characters to prevent ReDoS attacks
+ * @param {string} str - Input string from user
+ * @returns {string} Escaped string safe for use in $regex queries
+ */
+const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 module.exports = {
   validateEmail,
   validatePassword,
@@ -150,4 +167,5 @@ module.exports = {
   validateAnswerText,
   validateJobPost,
   validateJobApplication,
+  escapeRegex,
 };

@@ -1,3 +1,5 @@
+const logger = require('../utils/logger');
+
 /**
  * Custom API Error class
  */
@@ -15,11 +17,13 @@ class APIError extends Error {
  * Catches all errors and formats response
  */
 const errorHandler = (err, req, res, next) => {
-  console.error("Error:", {
+  logger.error({
     message: err.message,
     stack: err.stack,
-    path: req.path,
+    url: req.path,
     method: req.method,
+    ip: req.ip,
+    userId: req.user?.id || req.user?._id
   });
 
   let status = err.status || 500;

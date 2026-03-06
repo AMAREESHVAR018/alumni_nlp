@@ -1,63 +1,87 @@
 version: '3.8'
 
 services:
-  mongo:
-    image: mongo:latest
-    container_name: alumni_mongo
-    ports:
-      - "27017:27017"
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: admin
-      MONGO_INITDB_ROOT_PASSWORD: admin123
-    volumes:
-      - mongo_data:/data/db
-    networks:
-      - alumni_network
-
-  nlp-service:
-    build: ./nlp-service
-    container_name: alumni_nlp
-    ports:
-      - "5001:5001"
-    environment:
-      - FLASK_ENV=production
-    networks:
-      - alumni_network
-    depends_on:
-      - mongo
-
   backend:
-    build: ./server
-    container_name: alumni_backend
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: alumni-backend
     ports:
       - "5000:5000"
     environment:
-      - MONGO_URI=mongodb://mongo:27017/alumni_chat
-      - JWT_SECRET=supersecretkey
-      - NLP_SERVICE_URL=http://nlp-service:5001
-      - SIMILARITY_THRESHOLD=0.80
       - NODE_ENV=production
+      - PORT=5000
+      - MONGO_URI=mongodb://mongodb:27017/alumni-chat
+      - JWT_SECRET=${JWT_SECRET}
+      - NLP_SERVICE_URL=http://nlp-service:5001
+      - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:3000}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - SIMILARITY_THRESHOLD=${SIMILARITY_THRESHOLD:-0.80}
     depends_on:
-      - mongo
-      - nlp-service
-    networks:
-      - alumni_network
+      mongodb:
+        condition: service_healthy
+      nlp-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    volumes:
+      - ./server/logs:/app/logs
 
   frontend:
-    build: ./client
-    container_name: alumni_frontend
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    container_name: alumni-frontend
     ports:
       - "3000:3000"
     environment:
-      - REACT_APP_API_URL=http://localhost:5000/api
+      - REACT_APP_API_URL=http://localhost:5000
     depends_on:
-      - backend
-    networks:
-      - alumni_network
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+
+  nlp-service:
+    build:
+      context: ./nlp-service
+      dockerfile: Dockerfile
+    container_name: alumni-nlp
+    ports:
+      - "5001:5001"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5001/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+
+  mongodb:
+    image: mongo:7.0
+    container_name: alumni-mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
 
 volumes:
-  mongo_data:
-
-networks:
-  alumni_network:
-    driver: bridge
+  mongodb_data:
+    name: alumni_mongodb_data

@@ -97,12 +97,14 @@ const createRateLimiter = (keyPrefix, windowMs, max, message) => {
     res.set("X-RateLimit-Reset", new Date(record.resetTime).toISOString());
 
     if (record.count > max) {
+      const retryAfterSecs = Math.ceil((record.resetTime - Date.now()) / 1000);
       console.warn(`[RATE-LIMIT] ${keyPrefix} limit exceeded for IP: ${req.ip}`);
+      res.set("Retry-After", retryAfterSecs);
       return res.status(429).json({
         success: false,
         error: {
           code: "RATE_LIMIT_EXCEEDED",
-          message: message || `Too many requests. Please try again after ${Math.ceil((record.resetTime - Date.now()) / 1000)} seconds.`,
+          message: message || `Too many requests. Please try again after ${retryAfterSecs} seconds.`,
         },
       });
     }
@@ -128,6 +130,13 @@ const rateLimiters = {
     RATE_LIMITS.register.windowMs,
     RATE_LIMITS.register.max,
     "Too many registration attempts. Please try again later."
+  ),
+
+  refresh: createRateLimiter(
+    "auth:refresh",
+    15 * 60 * 1000, // 15 minutes
+    10,             // 10 attempts per window
+    "Too many token refresh attempts. Please try again later."
   ),
 
   // Question endpoints

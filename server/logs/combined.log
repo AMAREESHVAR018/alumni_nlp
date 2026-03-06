@@ -1,0 +1,16 @@
+{"level":"info","message":"[VECTOR DB] PINECONE_API_KEY not found. Falling back to local FAISS via NLP service.","service":"mentor-bridge-api","timestamp":"2026-03-06T07:45:49.873Z"}
+{"level":"info","message":"MongoDB connected successfully","service":"mentor-bridge-api","timestamp":"2026-03-06T07:45:51.116Z"}
+{"level":"info","message":"[VECTOR DB] PINECONE_API_KEY not found. Falling back to local FAISS via NLP service.","service":"mentor-bridge-api","timestamp":"2026-03-06T07:47:28.063Z"}
+{"level":"info","message":"MongoDB connected successfully","service":"mentor-bridge-api","timestamp":"2026-03-06T07:47:28.606Z"}
+{"level":"info","message":"[VECTOR DB] PINECONE_API_KEY not found. Falling back to local FAISS via NLP service.","service":"mentor-bridge-api","timestamp":"2026-03-06T07:47:44.412Z"}
+{"level":"info","message":"MongoDB connected successfully","service":"mentor-bridge-api","timestamp":"2026-03-06T07:47:45.174Z"}
+{"level":"info","message":"[NLP] generateEmbedding - Attempt 1/2","service":"mentor-bridge-api","timestamp":"2026-03-06T07:49:11.839Z"}
+{"level":"info","message":"[NLP] generateEmbedding - Success on attempt 1","service":"mentor-bridge-api","timestamp":"2026-03-06T07:49:11.933Z"}
+{"level":"info","message":"[QUESTION] Generated embedding for question (384-dim) in 95ms","service":"mentor-bridge-api","timestamp":"2026-03-06T07:49:11.934Z"}
+{"level":"info","message":"[QUESTION] Querying Vector DB for semantic similarity...","service":"mentor-bridge-api","timestamp":"2026-03-06T07:49:11.934Z"}
+{"level":"info","message":"[QUESTION] Vector DB returned no matches.","service":"mentor-bridge-api","timestamp":"2026-03-06T07:49:11.942Z"}
+{"level":"info","message":"[QUESTION] QUESTION PROCESSING COMPLETE:\n  Status: pending\n  Embedding Generation: 95ms\n  Total Processing Time: 9ms\n  Question ID: 69aa86f795c3711d10230ba2","service":"mentor-bridge-api","timestamp":"2026-03-06T07:49:11.952Z"}
+{"level":"info","message":"Socket connected: 6MHXn4AoDPx0P3ykAAAC (User: 699fdedb3302740d6d025830)","service":"mentor-bridge-api","timestamp":"2026-03-06T07:49:19.982Z"}
+{"level":"info","message":"Socket disconnected: 6MHXn4AoDPx0P3ykAAAC (User: 699fdedb3302740d6d025830)","service":"mentor-bridge-api","timestamp":"2026-03-06T07:49:21.814Z"}
+{"level":"info","message":"[VECTOR DB] PINECONE_API_KEY not found. Falling back to local FAISS via NLP service.","service":"mentor-bridge-api","timestamp":"2026-03-06T07:51:42.669Z"}
+{"level":"info","message":"MongoDB connected successfully","service":"mentor-bridge-api","timestamp":"2026-03-06T07:51:43.249Z"}

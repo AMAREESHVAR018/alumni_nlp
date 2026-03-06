@@ -10,30 +10,31 @@
 
 const mongoose = require('mongoose');
 const { createMockMongoose } = require('../services/mongoMockService');
+const logger = require('../utils/logger');
 
 // Connection states
 let mongooseInstance = mongoose;
 let isMockMode = false;
 
 /**
- * Try a single MongoDB connection
+ * Try a single MongoDB connection with Exponential Backoff
  */
-async function attemptConnection(uri, options, timeout = 5000) {
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
-      reject(new Error(`Connection timeout after ${timeout}ms`));
-    }, timeout);
-
-    mongoose.connect(uri, options)
-      .then(() => {
-        clearTimeout(timer);
-        resolve(true);
-      })
-      .catch(error => {
-        clearTimeout(timer);
-        reject(error);
-      });
-  });
+async function attemptConnection(uri, options, retries = 5) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      await mongoose.connect(uri, options);
+      logger.info('MongoDB connected successfully');
+      return true;
+    } catch (error) {
+      logger.error(`MongoDB connection attempt ${i + 1} failed: ${error.message}`);
+      if (i === retries - 1) {
+        throw error;
+      }
+      // Exponential backoff
+      await new Promise(resolve => setTimeout(resolve, 2000 * Math.pow(2, i)));
+    }
+  }
+  return false;
 }
 
 /**
@@ -50,7 +51,7 @@ async function tryLocalMongoDB() {
   };
   
   try {
-    await attemptConnection(localUri, options, 5000);
+    await attemptConnection(localUri, options, 2);
     console.log('✅ Connected to Local MongoDB');
     console.log(`   URI: ${localUri}`);
     return true;
@@ -65,7 +66,8 @@ async function tryLocalMongoDB() {
  * Try to connect to MongoDB Atlas
  */
 async function tryMongoDBAtlas() {
-  const atlasUri = process.env.MONGO_ATLAS_URI;
+  // Support both MONGO_URI and MONGO_ATLAS_URI for flexibility
+  const atlasUri = process.env.MONGO_URI || process.env.MONGO_ATLAS_URI;
   
   if (!atlasUri) {
     console.log('⏭️  MongoDB Atlas URI not configured');
@@ -83,7 +85,7 @@ async function tryMongoDBAtlas() {
   };
   
   try {
-    await attemptConnection(atlasUri, options, 10000);
+    await attemptConnection(atlasUri, options, 2);
     console.log('✅ Connected to MongoDB Atlas');
     console.log(`   Cluster: cluster0`);
     return true;

@@ -7,6 +7,7 @@
  */
 
 const jwt = require("jsonwebtoken");
+const logger = require("../utils/logger");
 const { APIError } = require("./errorHandler");
 const { ERROR_CODES } = require("../constants");
 
@@ -18,9 +19,9 @@ const { ERROR_CODES } = require("../constants");
  * @throws {APIError} If token is missing or invalid
  */
 const authenticate = (req, res, next) => {
-  const token = req.headers.authorization?.split(" ")[1];
-  
-  if (!token) {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return res.status(401).json({
       success: false,
       error: {
@@ -29,6 +30,8 @@ const authenticate = (req, res, next) => {
       },
     });
   }
+
+  const token = authHeader.slice(7); // Strip "Bearer " prefix
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
@@ -80,7 +83,7 @@ const authorize = (allowedRoles = []) => {
 
     // Check if user's role is in allowed roles
     if (!allowedRoles.includes(req.user.role)) {
-      console.warn(
+      logger.warn(
         `[AUTH] Unauthorized access attempt: User ${req.user.email} (${req.user.role}) tried to access admin resource`
       );
       

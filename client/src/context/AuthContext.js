@@ -3,6 +3,8 @@ import { authAPI } from '../services/api';
 
 const AuthContext = createContext();
 
+const DEBUG = process.env.REACT_APP_DEBUG === 'true';
+
 /**
  * AuthProvider Component
  * 
@@ -41,7 +43,6 @@ export const AuthProvider = ({ children }) => {
         setUser(JSON.parse(savedUser));
         // Future: Validate token with backend (call /auth/profile endpoint)
       } catch (err) {
-        console.error('Failed to restore session:', err);
         // Clear corrupted data
         localStorage.removeItem('token');
         localStorage.removeItem('user');
@@ -81,7 +82,7 @@ export const AuthProvider = ({ children }) => {
       setToken(token);
       setUser(user);
       
-      console.log(`[AUTH] Login successful for ${user.role}: ${user.name}`);
+      if (DEBUG) console.log(`[AUTH] Login successful for ${user.role}: ${user.name}`);
       return { success: true };
     } catch (error) {
       const message = error.response?.data?.error?.message || 'Login failed';
@@ -124,7 +125,7 @@ export const AuthProvider = ({ children }) => {
       setToken(token);
       setUser(user);
       
-      console.log(`[AUTH] Registration successful: ${user.name} (${user.role})`);
+      if (DEBUG) console.log(`[AUTH] Registration successful: ${user.name} (${user.role})`);
       return { success: true };
     } catch (error) {
       console.error('[AUTH] Registration failed:', error.response?.data || error);
@@ -168,7 +169,7 @@ export const AuthProvider = ({ children }) => {
     setToken(null);
     setUser(null);
     setError(null);
-    console.log('[AUTH] Logout successful');
+    if (DEBUG) console.log('[AUTH] Logout successful');
     
     // Future: Call backend logout endpoint
     // await authAPI.logout().catch(err => console.error('Logout error:', err));

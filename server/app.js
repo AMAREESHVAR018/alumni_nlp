@@ -6,11 +6,19 @@ const morgan = require("morgan");
 // Rate limiting middleware (custom in-memory implementation)
 const { rateLimiters } = require("./middleware/rateLimiter");
 
+// NoSQL injection sanitization
+const { sanitizeInput } = require("./middleware/sanitize");
+
 // Application routes
 const authRoutes = require("./routes/authRoutes");
+const alumniRoutes = require("./routes/alumniRoutes");
 const questionRoutes = require("./routes/questionRoutes");
 const jobRoutes = require("./routes/jobRoutes");
 const analyticsRoutes = require("./routes/analyticsRoutes");
+const chatRoutes = require("./routes/chatRoutes");
+const featureRoutes = require("./routes/featureRoutes");
+const mentorRoutes = require("./routes/mentorRoutes");
+const resumeRoutes = require("./routes/resumeRoutes");
 
 // Error handling middleware
 const { errorHandler, notFoundHandler } = require("./middleware/errorHandler");
@@ -54,8 +62,11 @@ if (process.env.NODE_ENV === "development") {
 
 // JSON & URL encoded body parsers
 // Limits request size to prevent large payload attacks via DoS
-app.use(express.json({ limit: "10mb" }));
-app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+app.use(express.json({ limit: "1mb" }));
+app.use(express.urlencoded({ extended: true, limit: "1mb" }));
+
+// NoSQL injection sanitization — strip any '$'-prefixed keys from body/query
+app.use(sanitizeInput);
 
 /**
  * ============================================
@@ -134,6 +145,7 @@ app.get("/ready", async (req, res, next) => {
 // Rate limit auth endpoints (strict)
 app.use("/api/auth/login", rateLimiters.login);
 app.use("/api/auth/register", rateLimiters.register);
+app.use("/api/auth/refresh", rateLimiters.refresh);
 
 // Rate limit question endpoints
 app.use("/api/questions", rateLimiters.questions);
@@ -146,9 +158,14 @@ app.use("/api", rateLimiters.general);
 
 // Mount routes
 app.use("/api/auth", authRoutes);
+app.use("/api/alumni", alumniRoutes);
 app.use("/api/questions", questionRoutes);
 app.use("/api/jobs", jobRoutes);
 app.use("/api/analytics", analyticsRoutes);
+app.use("/api/chat", chatRoutes);
+app.use("/api/features", featureRoutes);
+app.use("/api/mentors", mentorRoutes);
+app.use("/api/resume", resumeRoutes);
 
 /**
  * ============================================

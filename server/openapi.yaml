@@ -1,0 +1,1493 @@
+openapi: 3.0.0
+
+info:
+  title: Alumni Chat System API
+  description: |
+    NLP-powered alumni-student networking and mentorship platform.
+
+    ## Features
+    - JWT-based authentication
+    - NLP similarity matching for questions
+    - Real-time chat via Socket.IO
+    - AI career advice and mentor recommendations
+    - Job board and internship listings
+    - Resume analysis
+    - Leaderboard and trending questions
+  version: 2.0.0
+  contact:
+    name: API Support
+
+servers:
+  - url: http://localhost:5000
+    description: Development server
+  - url: https://api.alumninetwork.com
+    description: Production server
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    # ── Core entities ─────────────────────────────────────────────────────────
+
+    User:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "507f1f77bcf86cd799439011"
+        name:
+          type: string
+          example: "Alice Johnson"
+        email:
+          type: string
+          format: email
+          example: "alice@university.edu"
+        role:
+          type: string
+          enum: [student, alumni, admin]
+        department:
+          type: string
+          example: "Computer Science"
+        company:
+          type: string
+          example: "Google"
+        jobTitle:
+          type: string
+          example: "Senior Software Engineer"
+        skills:
+          type: array
+          items:
+            type: string
+          example: ["Python", "Machine Learning"]
+        interests:
+          type: array
+          items:
+            type: string
+          example: ["AI", "Cloud Computing"]
+        bio:
+          type: string
+        domain:
+          type: string
+          example: "Software Engineering"
+        yearsOfExperience:
+          type: integer
+          example: 5
+        profilePicture:
+          type: string
+          format: uri
+        createdAt:
+          type: string
+          format: date-time
+
+    Question:
+      type: object
+      properties:
+        _id:
+          type: string
+        question_text:
+          type: string
+          example: "How do I prepare for system design interviews?"
+        category:
+          type: string
+          example: "Career Path"
+        domain:
+          type: string
+          example: "Software Engineering"
+        status:
+          type: string
+          enum: [pending, assigned, answered]
+        answer_text:
+          type: string
+        isAnswered:
+          type: boolean
+        views:
+          type: integer
+        helpful_count:
+          type: integer
+        student_id:
+          type: string
+        answered_by:
+          type: string
+        similarity_score:
+          type: number
+          format: float
+        createdAt:
+          type: string
+          format: date-time
+
+    JobPost:
+      type: object
+      properties:
+        _id:
+          type: string
+        title:
+          type: string
+          example: "Software Engineering Intern"
+        company:
+          type: string
+          example: "Microsoft"
+        description:
+          type: string
+        requirements:
+          type: array
+          items:
+            type: string
+          example: ["Python", "React"]
+        category:
+          type: string
+          enum: [internship, full-time, part-time]
+        location:
+          type: string
+          example: "Remote"
+        is_active:
+          type: boolean
+        alumni_id:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    Message:
+      type: object
+      properties:
+        _id:
+          type: string
+        senderId:
+          type: string
+        text:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        seen:
+          type: boolean
+
+    Conversation:
+      type: object
+      properties:
+        _id:
+          type: string
+        members:
+          type: array
+          items:
+            type: string
+        lastMessage:
+          type: string
+        updatedAt:
+          type: string
+          format: date-time
+
+    PlatformStats:
+      type: object
+      properties:
+        totalUsers:
+          type: integer
+        totalAlumni:
+          type: integer
+        totalStudents:
+          type: integer
+        totalQuestions:
+          type: integer
+        answeredQuestions:
+          type: integer
+        totalJobs:
+          type: integer
+
+    Notification:
+      type: object
+      properties:
+        id:
+          type: integer
+        text:
+          type: string
+        isRead:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    Error:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+
+    ValidationError:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+
+    AuthResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            token:
+              type: string
+              description: JWT bearer token
+            user:
+              type: object
+              properties:
+                id:
+                  type: string
+                name:
+                  type: string
+                email:
+                  type: string
+                role:
+                  type: string
+        message:
+          type: string
+
+  parameters:
+    PageParam:
+      in: query
+      name: page
+      schema:
+        type: integer
+        default: 1
+        minimum: 1
+      description: Page number for pagination
+
+    LimitParam:
+      in: query
+      name: limit
+      schema:
+        type: integer
+        default: 10
+        minimum: 1
+        maximum: 100
+      description: Number of results per page
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid JWT token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    ValidationError:
+      description: Validation error or missing required fields
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ValidationError'
+
+security:
+  - BearerAuth: []
+
+tags:
+  - name: Authentication
+    description: User registration, login, and profile management
+  - name: Questions
+    description: Ask questions, answer, and browse with NLP matching
+  - name: Jobs
+    description: Job and internship listings posted by alumni
+  - name: Chat
+    description: Real-time direct messaging between users
+  - name: Features
+    description: Platform features — trending, AI advice, leaderboard, stats
+  - name: Mentors
+    description: AI-powered mentor recommendations
+  - name: Resume
+    description: Resume upload and analysis
+  - name: System
+    description: Health and readiness probes
+
+paths:
+  # ── Authentication ────────────────────────────────────────────────────────
+
+  /api/auth/register:
+    post:
+      tags: [Authentication]
+      summary: Register a new user
+      description: |
+        Creates a new student or alumni account.
+        Validates email format, password strength, and role before saving.
+        Returns a JWT token on success.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, password, role]
+              properties:
+                name:
+                  type: string
+                  example: "Alice Johnson"
+                email:
+                  type: string
+                  format: email
+                  example: "alice@university.edu"
+                password:
+                  type: string
+                  minLength: 6
+                  example: "StrongPass123!"
+                role:
+                  type: string
+                  enum: [student, alumni]
+                department:
+                  type: string
+                  example: "Computer Science"
+                company:
+                  type: string
+                  example: "Google"
+                profile:
+                  type: object
+                  properties:
+                    student:
+                      type: object
+                      properties:
+                        department:
+                          type: string
+                        graduationYear:
+                          type: integer
+      responses:
+        '201':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '409':
+          description: Email already registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/auth/login:
+    post:
+      tags: [Authentication]
+      summary: Login and obtain JWT token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: "alice@university.edu"
+                password:
+                  type: string
+                  example: "StrongPass123!"
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          description: Invalid email or password
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/auth/profile:
+    get:
+      tags: [Authentication]
+      summary: Get current user's full profile
+      responses:
+        '200':
+          description: User profile data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    put:
+      tags: [Authentication]
+      summary: Update current user's profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                department:
+                  type: string
+                company:
+                  type: string
+                jobTitle:
+                  type: string
+                skills:
+                  type: array
+                  items:
+                    type: string
+                interests:
+                  type: array
+                  items:
+                    type: string
+                bio:
+                  type: string
+      responses:
+        '200':
+          description: Profile updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/auth/alumni/search:
+    get:
+      tags: [Authentication]
+      summary: Search alumni by domain, company, skills, or graduation year
+      security: []
+      parameters:
+        - in: query
+          name: domain
+          schema:
+            type: string
+          example: "Software Engineering"
+        - in: query
+          name: company
+          schema:
+            type: string
+        - in: query
+          name: skills
+          schema:
+            type: string
+          description: Comma-separated list of skills
+        - in: query
+          name: graduationYear
+          schema:
+            type: integer
+        - in: query
+          name: min_experience
+          schema:
+            type: integer
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: Paginated alumni list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/User'
+                  pagination:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                      page:
+                        type: integer
+                      limit:
+                        type: integer
+
+  /api/auth/alumni/{id}:
+    get:
+      tags: [Authentication]
+      summary: Get a specific alumni profile by ID
+      security: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Alumni profile
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/User'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ── Questions ─────────────────────────────────────────────────────────────
+
+  /api/questions:
+    post:
+      tags: [Questions]
+      summary: Ask a question with NLP similarity matching
+      description: |
+        Submits a new question. The NLP engine checks for semantically similar
+        answered questions and may return a matched answer instead of creating
+        a new record.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [question_text]
+              properties:
+                question_text:
+                  type: string
+                  minLength: 10
+                  example: "How do I prepare for system design interviews?"
+                category:
+                  type: string
+                  example: "Career Path"
+                domain:
+                  type: string
+                  example: "Software Engineering"
+      responses:
+        '201':
+          description: Question created (or matched to existing answer)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      question:
+                        $ref: '#/components/schemas/Question'
+                      matched:
+                        type: boolean
+                        description: True if a similar answered question was found
+                      similarityScore:
+                        type: number
+                        format: float
+                  message:
+                    type: string
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/questions/all:
+    get:
+      tags: [Questions]
+      summary: List all questions with optional filters
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [pending, assigned, answered]
+        - in: query
+          name: category
+          schema:
+            type: string
+        - in: query
+          name: answered
+          schema:
+            type: boolean
+        - in: query
+          name: domain
+          schema:
+            type: string
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: Paginated questions list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Question'
+                  pagination:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                      page:
+                        type: integer
+                      limit:
+                        type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/questions/my-questions:
+    get:
+      tags: [Questions]
+      summary: Get questions asked by the current user
+      responses:
+        '200':
+          description: User's own questions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Question'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/questions/{id}:
+    get:
+      tags: [Questions]
+      summary: Get a specific question by ID
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Question details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/Question'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/questions/{id}/answer:
+    post:
+      tags: [Questions]
+      summary: Submit an answer to a question (alumni only)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [answer_text]
+              properties:
+                answer_text:
+                  type: string
+                  minLength: 20
+                  example: "To prepare for system design, study scalability, databases, and caching patterns."
+      responses:
+        '200':
+          description: Answer submitted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/Question'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Forbidden — only alumni may answer questions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/questions/{id}/helpful:
+    post:
+      tags: [Questions]
+      summary: Increment the helpful count on a question
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Helpful count updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/Question'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ── Jobs ──────────────────────────────────────────────────────────────────
+
+  /api/jobs:
+    get:
+      tags: [Jobs]
+      summary: List all active job postings
+      parameters:
+        - in: query
+          name: category
+          schema:
+            type: string
+            enum: [internship, full-time, part-time]
+        - in: query
+          name: location
+          schema:
+            type: string
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: Paginated job listings
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/JobPost'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags: [Jobs]
+      summary: Create a new job posting (alumni only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, company, description]
+              properties:
+                title:
+                  type: string
+                  example: "Software Engineering Intern"
+                company:
+                  type: string
+                  example: "Google"
+                description:
+                  type: string
+                requirements:
+                  type: array
+                  items:
+                    type: string
+                  example: ["Python", "React", "SQL"]
+                category:
+                  type: string
+                  enum: [internship, full-time, part-time]
+                location:
+                  type: string
+                  example: "Remote"
+      responses:
+        '201':
+          description: Job post created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/JobPost'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Forbidden — only alumni may post jobs
+
+  /api/jobs/{id}:
+    get:
+      tags: [Jobs]
+      summary: Get a specific job posting by ID
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Job details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/JobPost'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ── Chat ──────────────────────────────────────────────────────────────────
+
+  /api/chat/conversations:
+    get:
+      tags: [Chat]
+      summary: Get all conversations for the current user
+      responses:
+        '200':
+          description: List of conversations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Conversation'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/chat:
+    post:
+      tags: [Chat]
+      summary: Send a direct message
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [receiverId, text]
+              properties:
+                receiverId:
+                  type: string
+                  example: "507f1f77bcf86cd799439012"
+                text:
+                  type: string
+                  example: "Hi, I'd love to learn more about your career path!"
+      responses:
+        '201':
+          description: Message sent
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/Message'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/chat/{conversationId}:
+    get:
+      tags: [Chat]
+      summary: Get messages for a specific conversation
+      parameters:
+        - in: path
+          name: conversationId
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: Paginated message list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Message'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ── Platform Features ──────────────────────────────────────────────────────
+
+  /api/features/trending:
+    get:
+      tags: [Features]
+      summary: Get trending questions and alumni leaderboard
+      description: Returns the most-viewed questions and top alumni by answers given.
+      responses:
+        '200':
+          description: Trending data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      trendingQuestions:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Question'
+                      leaderboard:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            _id:
+                              type: string
+                            name:
+                              type: string
+                            company:
+                              type: string
+                            answer_count:
+                              type: integer
+                      topStudents:
+                        type: array
+                        items:
+                          type: object
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/features/notifications:
+    get:
+      tags: [Features]
+      summary: Get notifications for the current user
+      responses:
+        '200':
+          description: Notification list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Notification'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/features/ai-advice:
+    get:
+      tags: [Features]
+      summary: Get personalised AI career advice
+      description: Returns a role-specific career tip (differs for students vs alumni).
+      responses:
+        '200':
+          description: Career advice string
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: string
+                    example: "Focus on mastering one core language before learning another."
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/features/activity:
+    get:
+      tags: [Features]
+      summary: Get the platform activity feed
+      description: Returns a chronologically sorted feed of recent job posts and questions.
+      responses:
+        '200':
+          description: Activity feed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        type:
+                          type: string
+                          enum: [job, question]
+                        title:
+                          type: string
+                        createdAt:
+                          type: string
+                          format: date-time
+                        ref:
+                          type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/features/book-mentor:
+    post:
+      tags: [Features]
+      summary: Book a mentorship session with an alumni
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [mentorId, date, time]
+              properties:
+                mentorId:
+                  type: string
+                  example: "507f1f77bcf86cd799439012"
+                date:
+                  type: string
+                  format: date
+                  example: "2025-09-15"
+                time:
+                  type: string
+                  example: "14:00"
+                message:
+                  type: string
+                  example: "I'd love to discuss AI career paths."
+      responses:
+        '200':
+          description: Booking confirmed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      mentorId:
+                        type: string
+                      mentorName:
+                        type: string
+                      date:
+                        type: string
+                      time:
+                        type: string
+                      status:
+                        type: string
+                        example: "confirmed"
+        '400':
+          description: Missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Mentor not found or is not an alumni
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/features/stats:
+    get:
+      tags: [Features]
+      summary: Get platform statistics
+      description: Returns aggregate counts for users, questions, and jobs. Cached for 5 minutes.
+      responses:
+        '200':
+          description: Platform statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/PlatformStats'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/features/leaderboard:
+    get:
+      tags: [Features]
+      summary: Get full leaderboard data
+      description: Returns top alumni by answers given and top students by activity.
+      responses:
+        '200':
+          description: Leaderboard
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      topAlumni:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            _id:
+                              type: string
+                            name:
+                              type: string
+                            company:
+                              type: string
+                            answer_count:
+                              type: integer
+                      topStudents:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            _id:
+                              type: string
+                            name:
+                              type: string
+                            question_count:
+                              type: integer
+                            total_helpful:
+                              type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/features/skill-matches:
+    get:
+      tags: [Features]
+      summary: Get alumni with skills matching the current user's profile
+      description: Compares the authenticated user's skills and interests against alumni profiles.
+      responses:
+        '200':
+          description: Skill-matched alumni list (sorted by overlap count)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      allOf:
+                        - $ref: '#/components/schemas/User'
+                        - type: object
+                          properties:
+                            overlapCount:
+                              type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/features/recommendations:
+    get:
+      tags: [Features]
+      summary: Get recommended alumni for the current user
+      responses:
+        '200':
+          description: Recommended alumni with match scores
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      allOf:
+                        - $ref: '#/components/schemas/User'
+                        - type: object
+                          properties:
+                            matchScore:
+                              type: integer
+                              minimum: 70
+                              maximum: 100
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/features/internships:
+    get:
+      tags: [Features]
+      summary: Get recommended internship postings
+      responses:
+        '200':
+          description: Internship recommendations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/JobPost'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ── Mentors ───────────────────────────────────────────────────────────────
+
+  /api/mentors/recommendations/{studentId}:
+    get:
+      tags: [Mentors]
+      summary: Get AI-recommended mentors for a student
+      description: |
+        Computes semantic similarity between a student's profile and all alumni
+        profiles, returning a ranked list with similarity scores.
+      parameters:
+        - in: path
+          name: studentId
+          required: true
+          schema:
+            type: string
+          example: "507f1f77bcf86cd799439011"
+      responses:
+        '200':
+          description: Ranked mentor recommendations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  recommendedMentors:
+                    type: array
+                    items:
+                      allOf:
+                        - $ref: '#/components/schemas/User'
+                        - type: object
+                          properties:
+                            similarityScore:
+                              type: number
+                              format: float
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ── Resume ────────────────────────────────────────────────────────────────
+
+  /api/resume/analyze:
+    post:
+      tags: [Resume]
+      summary: Upload and analyse a resume
+      description: Accepts PDF or DOCX files and returns extracted skills, experience, and feedback.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [resume]
+              properties:
+                resume:
+                  type: string
+                  format: binary
+                  description: PDF or DOCX resume file (max 10 MB)
+      responses:
+        '200':
+          description: Resume analysis results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      skills:
+                        type: array
+                        items:
+                          type: string
+                      experience:
+                        type: array
+                        items:
+                          type: string
+                      education:
+                        type: array
+                        items:
+                          type: string
+                      suggestions:
+                        type: array
+                        items:
+                          type: string
+        '400':
+          description: No file uploaded or unsupported file type
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ── System ────────────────────────────────────────────────────────────────
+
+  /health:
+    get:
+      tags: [System]
+      summary: Liveness health check
+      description: Used by load balancers to verify the server is running.
+      security: []
+      responses:
+        '200':
+          description: Server is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  status:
+                    type: string
+                    example: "healthy"
+                  uptime:
+                    type: number
+                  environment:
+                    type: string
+                  timestamp:
+                    type: string
+                    format: date-time
+
+  /ready:
+    get:
+      tags: [System]
+      summary: Readiness check
+      description: |
+        Used by orchestration platforms (Kubernetes, ECS) to check if the
+        server is ready to accept traffic. Verifies MongoDB connectivity.
+      security: []
+      responses:
+        '200':
+          description: Server is ready
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  status:
+                    type: string
+                    example: "ready"
+                  checks:
+                    type: object
+                    properties:
+                      database:
+                        type: string
+                        example: "connected"
+                  timestamp:
+                    type: string
+                    format: date-time
+        '503':
+          description: Service unavailable — database not connected
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  status:
+                    type: string
+                    example: "not_ready"
+                  reason:
+                    type: string
+                  timestamp:
+                    type: string
+                    format: date-time

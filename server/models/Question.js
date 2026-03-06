@@ -12,13 +12,16 @@ const questionSchema = new mongoose.Schema({
     enum: ["pending", "assigned", "answered"], 
     default: "pending" 
   },
+  tags: [String],   // spec-required; use for topic tagging
   category: String, // e.g., "Career Path", "Skills", "Job Search"
   domain: String, // e.g., "Software Engineering", "Data Science"
   isAnswered: { type: Boolean, default: false },
-  views: { type: Number, default: 0 },
+  answer_date: Date,
+  views_count: { type: Number, default: 0 },
   helpful_count: { type: Number, default: 0 },
   similarity_score: Number, // Score if matched with existing answer
   matched_question_id: { type: mongoose.Schema.Types.ObjectId, ref: "Question" }, // If matched
+  embedding_error: String, // Track NLP embedding generation failures
   
 }, { timestamps: true });
 
@@ -51,6 +54,11 @@ questionSchema.index({ student_id: 1, createdAt: -1 });
 // Performance: ~10-20x faster
 questionSchema.index({ status: 1 });
 
+// Assigned alumni index
+// Used by: Alumni fetching their assigned questions
+// Performance: ~10-20x faster
+questionSchema.index({ assigned_to: 1 });
+
 // Similarity tracking index
 // Used by: Analytics dashboard (find matched questions)
 // Performance: ~10-15x faster for analytics queries
@@ -60,6 +68,9 @@ questionSchema.index({ matched_question_id: 1, similarity_score: -1 });
 // Used by: Question filtering by category/domain
 // Performance: ~10-20x faster for category filtering
 questionSchema.index({ category: 1, domain: 1 });
+
+// Tags index (spec-required)
+questionSchema.index({ tags: 1 });
 
 // TTL (Time To Live) index for cleanup
 // Auto-deletes unanswered questions after 90 days

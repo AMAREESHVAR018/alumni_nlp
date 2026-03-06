@@ -1,5 +1,8 @@
 require("dotenv").config();
 const app = require("./app");
+const http = require("http");
+const { initSocket } = require("./socket");
+const seedDatabase = require("./scripts/seedFaker");
 const { connectToDatabase, isInMockMode, getConnectionStatus } = require("./config/database");
 
 /**
@@ -61,8 +64,16 @@ const startServer = async () => {
       mockMode: status.isMock,
     });
     
+    // Run seed if not mock
+    if (!status.isMock) {
+      await seedDatabase();
+    }
+    
     // Success - start Express server
-    app.listen(PORT, () => {
+    _server = http.createServer(app);
+    initSocket(_server);
+
+    _server.listen(PORT, () => {
       console.log(`✅ Server running on port ${PORT}`);
       console.log(`🔗 API Base: http://localhost:${PORT}/api`);
       console.log(`💚 Health Check: http://localhost:${PORT}/health`);
@@ -71,7 +82,7 @@ const startServer = async () => {
       console.log("Press Ctrl+C to stop the server");
     });
     
-    return;
+    return _server;
   } catch (error) {
     console.error("\n❌ Failed to start server");
     console.error(`   Error: ${error.message}`);
@@ -92,18 +103,45 @@ const startServer = async () => {
  * ============================================
  * 
  * Handles shutdown signals (SIGTERM, SIGINT)
- * Close database connections and clean up resources
+ * Closes HTTP server, then MongoDB connection before exiting
  */
 
-process.on("SIGTERM", () => {
-  console.log("\n📍 SIGTERM received, shutting down gracefully...");
-  process.exit(0);
-});
+let _server; // Holds the HTTP server reference after startup
 
-process.on("SIGINT", () => {
-  console.log("\n📍 SIGINT received, shutting down gracefully...");
-  process.exit(0);
-});
+const gracefulShutdown = (signal) => {
+  console.log(`\n📍 ${signal} received, shutting down gracefully...`);
+
+  // Force exit if shutdown takes too long
+  const forceExit = setTimeout(() => {
+    console.error("⚠️  Forced exit after timeout");
+    process.exit(1);
+  }, 30000);
+  forceExit.unref();
+
+  const finish = () => {
+    require("mongoose").connection.close(false)
+      .then(() => {
+        console.log("✅ MongoDB connection closed");
+        process.exit(0);
+      })
+      .catch((err) => {
+        console.error("⚠️  Error closing MongoDB:", err.message);
+        process.exit(1);
+      });
+  };
+
+  if (_server) {
+    _server.close(() => {
+      console.log("✅ HTTP server closed");
+      finish();
+    });
+  } else {
+    finish();
+  }
+};
+
+process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+process.on("SIGINT", () => gracefulShutdown("SIGINT"));
 
 /**
  * ============================================

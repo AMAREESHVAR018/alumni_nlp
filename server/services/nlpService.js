@@ -1,5 +1,7 @@
 const axios = require("axios");
+const logger = require("../utils/logger");
 const { NLP_CONFIG, ERROR_CODES } = require("../constants");
+const { calculateTfIdfSimilarity } = require("./tfidfService");
 
 const NLP_SERVICE_URL = process.env.NLP_SERVICE_URL || "http://localhost:5001";
 const NLP_TIMEOUT = 10000; // 10 seconds
@@ -30,15 +32,14 @@ const executeWithRetry = async (requestFn, operationName, maxRetries = MAX_RETRI
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      console.log(`[NLP] ${operationName} - Attempt ${attempt}/${maxRetries}`);
+      logger.info(`[NLP] ${operationName} - Attempt ${attempt}/${maxRetries}`);
       const response = await requestFn();
-      console.log(`[NLP] ${operationName} - Success on attempt ${attempt}`);
+      logger.info(`[NLP] ${operationName} - Success on attempt ${attempt}`);
       return response;
     } catch (error) {
       lastError = error;
-      console.warn(
-        `[NLP] ${operationName} - Attempt ${attempt} failed:`,
-        error.message
+      logger.warn(
+        `[NLP] ${operationName} - Attempt ${attempt} failed: ${error.message}`
       );
 
       // Don't retry on validation errors or bad requests
@@ -142,13 +143,12 @@ const checkNLPHealth = async () => {
       timeout: NLP_TIMEOUT,
     });
     const isHealthy = response.status === 200 && response.data?.status === "healthy";
-    console.log(
-      `[NLP] Health check:`,
-      isHealthy ? "✓ Healthy" : "✗ Unhealthy"
+    logger.info(
+      `[NLP] Health check: ${isHealthy ? "✓ Healthy" : "✗ Unhealthy"}`
     );
     return isHealthy;
   } catch (error) {
-    console.error("[NLP] Health check failed:", error.message);
+    logger.error(`[NLP] Health check failed: ${error.message}`);
     return false;
   }
 };
@@ -171,12 +171,12 @@ const findSimilarQuestions = async (
 ) => {
   // Input validation
   if (!query || typeof query !== "string" || query.trim().length === 0) {
-    console.warn("[NLP] Empty query for similarity check");
+    logger.warn("[NLP] Empty query for similarity check");
     return { matches: [], best_match: null, total_matches: 0 };
   }
 
   if (!documents || !Array.isArray(documents) || documents.length === 0) {
-    console.warn("[NLP] No documents provided for similarity check");
+    logger.warn("[NLP] No documents provided for similarity check");
     return { matches: [], best_match: null, total_matches: 0 };
   }
 
@@ -214,15 +214,24 @@ const findSimilarQuestions = async (
       total_matches: typeof total_matches === "number" ? total_matches : 0,
     };
   } catch (error) {
-    // Log error but return empty results (graceful degradation)
     if (error instanceof AppError) {
-      console.error(`[NLP] Similarity check failed: ${error.message}`);
+      logger.error(`[NLP] Similarity check failed via Python NLP: ${error.message}`);
     } else {
-      console.error("Unexpected error in findSimilarQuestions:", error.message);
+      logger.error(`[NLP] Unexpected error in findSimilarQuestions: ${error.message}`);
     }
 
-    // Return empty results for graceful degradation
-    return { matches: [], best_match: null, total_matches: 0 };
+    logger.info("[NLP] Attempting fallback to local TF-IDF similarity engine...");
+    try {
+      // Use lower threshold for TF-IDF since scores are calculated differently
+      const tfidfThreshold = Math.max(0.1, threshold / 4);
+      const tfidfResult = calculateTfIdfSimilarity(query, documents, tfidfThreshold);
+      logger.info(`[NLP] TF-IDF fallback successful, found ${tfidfResult.total_matches} matches`);
+      return tfidfResult;
+    } catch (fallbackError) {
+      logger.error(`[NLP] TF-IDF fallback also failed: ${fallbackError.message}`);
+      // Return empty results for graceful degradation if BOTH fail
+      return { matches: [], best_match: null, total_matches: 0, isFallback: true };
+    }
   }
 };
 

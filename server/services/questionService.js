@@ -9,8 +9,12 @@
 
 const Question = require("../models/Question");
 const User = require("../models/User");
+const logger = require("../utils/logger");
 const { generateEmbedding, AppError } = require("./nlpService");
 const { cosineSimilarity, batchSimilarity } = require("../utils/similarity");
+const { computeTFIDF } = require("../utils/nlpFallback");
+const { calculateTfIdfSimilarity } = require("./tfidfService");
+const { storeQuestionEmbedding, searchSimilarQuestions } = require("./vectorSearchService");
 const {
   QUESTION_STATUS,
   NLP_CONFIG,
@@ -65,7 +69,7 @@ const askQuestion = async (studentId, questionText, category, domain) => {
     embedding = await generateEmbedding(trimmedQuestion);
     embeddingTimeMs = Date.now() - embeddingStartTime;
     
-    console.log(
+    logger.info(
       `[QUESTION] Generated embedding for question (${embedding.length}-dim) in ${embeddingTimeMs}ms`
     );
     
@@ -74,7 +78,7 @@ const askQuestion = async (studentId, questionText, category, domain) => {
   } catch (error) {
     // Log but don't fail - continue without embedding
     embeddingError = error.message;
-    console.warn(
+    logger.warn(
       `[QUESTION] Embedding generation failed (continuing): ${error.message}`
     );
     // Future: metrics.recordEmbeddingError(error.code);
@@ -94,78 +98,82 @@ const askQuestion = async (studentId, questionText, category, domain) => {
    * When to implement: After 10K+ questions, if query latency > 500ms
    */
 
-  // 3. Find similar answered questions (only if embedding generated)
+  // 3. Find similar answered questions using Vector DB Semantic Search
   let matchedQuestion = null;
   let similarityScore = 0;
 
   if (embedding) {
     try {
-      // Fetch all answered questions with embeddings
-      // Optimized query: only fetch necessary fields
-      const answeredQuestions = await Question.find({
-        isAnswered: true,
-        answer_text: { $exists: true, $ne: null },
-        embedding_vector: { $exists: true, $ne: null },
-      })
-        .select("question_text answer_text embedding_vector _id helpful_count views_count")
-        .lean() // Use lean() for read-only queries (faster)
-        .limit(1000); // Limit comparison set for performance
+      const searchStartTime = Date.now();
+      logger.info(`[QUESTION] Querying Vector DB for semantic similarity...`);
+      
+      const similarities = await searchSimilarQuestions(embedding, 5);
+      const similarityTimeMs = Date.now() - searchStartTime;
 
-      const databaseQueryStartTime = Date.now();
-  console.log(
-    `[QUESTION] Querying answered questions for similarity matching...`
-  );
-
-      if (answeredQuestions.length > 0) {
-        // 4. Compute cosine similarity against answered questions
-        const similarityStartTime = Date.now();
-        const similarities = answeredQuestions.map((q, index) => ({
-          index,
-          score: cosineSimilarity(embedding, q.embedding_vector),
-          questionId: q._id,
-          questionText: q.question_text,
-          answerText: q.answer_text,
-          helpfulCount: q.helpful_count || 0,
-          viewsCount: q.views_count || 0,
-        }));
-        const similarityTimeMs = Date.now() - similarityStartTime;
-
-        // 5. Check if best match exceeds threshold
-        const bestMatch = similarities.reduce((max, curr) =>
-          curr.score > max.score ? curr : max
-        );
+      if (similarities && similarities.length > 0) {
+        // Results are pre-sorted by score (descending)
+        const bestMatch = similarities[0];
 
         if (bestMatch.score >= NLP_CONFIG.SIMILARITY_THRESHOLD) {
-          // Found matching answer - return it immediately
           matchedQuestion = bestMatch.questionId;
           similarityScore = bestMatch.score;
           
-          console.log(
-            `[QUESTION] SIMILARITY MATCH FOUND:\n` +
+          logger.info(
+            `[QUESTION] VECTOR DB MATCH FOUND:\n` +
             `  Score: ${similarityScore.toFixed(4)} (threshold: ${NLP_CONFIG.SIMILARITY_THRESHOLD})\n` +
-            `  Matched Question: "${bestMatch.questionText.substring(0, 50)}..."\n` +
-            `  Comparison Time: ${similarityTimeMs}ms for ${answeredQuestions.length} questions\n` +
-            `  Helpful Count (matched): ${bestMatch.helpfulCount}\n` +
-            `  Views Count (matched): ${bestMatch.viewsCount}`
+            `  Matched Question ID: ${matchedQuestion}\n` +
+            `  Search Time: ${similarityTimeMs}ms`
           );
-          
-          // Future: Send to analytics system
-          // metrics.recordSimilarityMatch({ score: similarityScore, timeMs: similarityTimeMs, candidateCount: answeredQuestions.length });
         } else {
-          console.log(
-            `[QUESTION] SIMILARITY SEARCH COMPLETE:\n` +
-            `  Best Score: ${bestMatch.score.toFixed(4)} (below threshold: ${NLP_CONFIG.SIMILARITY_THRESHOLD})\n` +
-            `  Questions Compared: ${answeredQuestions.length}\n` +
-            `  Comparison Time: ${similarityTimeMs}ms\n` +
-            `  Resolution: Saving as PENDING for alumni response`
+          logger.info(
+            `[QUESTION] VECTOR DB SEARCH COMPLETE:\n` +
+            `  Best Score: ${bestMatch.score.toFixed(4)} (below threshold)\n` +
+            `  Search Time: ${similarityTimeMs}ms\n` +
+            `  Resolution: Saving as PENDING`
           );
-          
-          // Future: metrics.recordNoSimilarityMatch({ bestScore: bestMatch.score, timeMs: similarityTimeMs });
+        }
+      } else {
+        logger.info(`[QUESTION] Vector DB returned no matches.`);
+      }
+    } catch (error) {
+      logger.error("[QUESTION] Vector similarity matching failed:", error.message);
+    }
+  } else {
+    try {
+      logger.info('[QUESTION] Fallback to TF-IDF similarity matching');
+      const answeredQuestions = await Question.find({
+        isAnswered: true,
+        answer_text: { $exists: true, $ne: null }
+      })
+      .select("question_text answer_text _id helpful_count views_count")
+      .lean()
+      .limit(1000);
+
+      if (answeredQuestions.length > 0) {
+        try {
+          // Primary fallback: tfidfService (uses natural library — more robust)
+          const questionTexts = answeredQuestions.map(q => q.question_text);
+          const tfidfThreshold = Math.max(0.05, NLP_CONFIG.SIMILARITY_THRESHOLD / 4);
+          const result = calculateTfIdfSimilarity(trimmedQuestion, questionTexts, tfidfThreshold);
+
+          if (result.best_match && result.best_match.score > 0) {
+            matchedQuestion = answeredQuestions[result.best_match.index]._id;
+            similarityScore = result.best_match.score;
+            logger.info(`[QUESTION] tfidfService match: score=${similarityScore.toFixed(4)}`);
+          }
+        } catch (tfidfError) {
+          // Secondary fallback: pure-JS computeTFIDF (no external deps)
+          logger.warn('[QUESTION] tfidfService fallback failed, trying nlpFallback:', tfidfError.message);
+          const { bestMatch, score } = computeTFIDF(trimmedQuestion, answeredQuestions);
+          if (bestMatch && score >= NLP_CONFIG.SIMILARITY_THRESHOLD) {
+            matchedQuestion = bestMatch._id;
+            similarityScore = score;
+          }
         }
       }
     } catch (error) {
-      console.error("[QUESTION] Similarity matching failed:", error.message);
-      // Continue without matching - question will be saved as pending
+      // Non-crashing: question will be saved as pending without a match
+      logger.error("[QUESTION] TF-IDF fallback matching failed:", error.message);
     }
   }
 
@@ -193,7 +201,7 @@ const askQuestion = async (studentId, questionText, category, domain) => {
   const totalTimeMs = Date.now() - totalStartTime;
   
   // Log performance summary
-  console.log(
+  logger.info(
     `[QUESTION] QUESTION PROCESSING COMPLETE:\n` +
     `  Status: ${newQuestion.status}\n` +
     `  Embedding Generation: ${embeddingTimeMs}ms\n` +
@@ -317,10 +325,11 @@ const answerQuestion = async (questionId, answerText, alumniId) => {
     throw new AppError("Question not found", 404, ERROR_CODES.NOT_FOUND);
   }
 
-  // Check authorization: only original alumni can answer
-  if (question.assigned_to?.toString() !== alumniId && question.student_id.toString() !== alumniId) {
+  // Authorization: if the question is assigned, only the assigned alumni can answer.
+  // Unassigned questions may be answered by any alumni (role already enforced at the route).
+  if (question.assigned_to && question.assigned_to.toString() !== alumniId) {
     throw new AppError(
-      "Not authorized to answer this question",
+      "This question is assigned to another alumni",
       403,
       ERROR_CODES.FORBIDDEN
     );
@@ -336,6 +345,9 @@ const answerQuestion = async (questionId, answerText, alumniId) => {
   await question.save();
   await question.populate("student_id", "name email");
   await question.populate("answered_by", "name email jobTitle");
+
+  // Push answered question to Vector DB to allow future semantic matches
+  await storeQuestionEmbedding(question);
 
   return question;
 };
@@ -386,8 +398,8 @@ const searchQuestions = async (filters = {}, page = 1, limit = PAGINATION.DEFAUL
     .populate("student_id", "name email")
     .populate("answered_by", "name email jobTitle")
     .sort({ createdAt: -1 })
-    .limit(validLimit)
-    .skip((pageNum - 1) * validLimit);
+    .skip((pageNum - 1) * validLimit)
+    .lean();
 
   return {
     questions,

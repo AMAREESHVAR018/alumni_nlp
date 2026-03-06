@@ -191,9 +191,9 @@ router.get(
     sendPaginated(
       res,
       formattedMatches,
+      totalMatches,
       pageNum,
       limitNum,
-      totalMatches,
       "Similarity matches retrieved"
     );
   })

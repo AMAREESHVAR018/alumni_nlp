@@ -2,6 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { jobAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { Card, CardContent } from './ui/Card';
+import { Button } from './ui/Button';
+import { Input } from './ui/Input';
+import { Skeleton } from './ui/Skeleton';
+import toast from 'react-hot-toast';
 
 const JobDetail = () => {
   const { id } = useParams();
@@ -43,16 +48,21 @@ const JobDetail = () => {
       setCoverLetter('');
       setShowApplyForm(false);
       setHasApplied(true);
-      alert('Application submitted successfully!');
+      toast.success('Application submitted successfully!');
     } catch (error) {
-      alert('Error applying: ' + (error.response?.data?.message || error.message));
+      toast.error('Error applying: ' + (error.response?.data?.message || error.message));
     } finally {
       setApplyLoading(false);
     }
   };
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-64 w-full" />
+        <Skeleton className="h-96 w-full" />
+      </div>
+    );
   }
 
   if (!job) {
@@ -63,177 +73,190 @@ const JobDetail = () => {
 
   return (
     <>
-        <Link to="/jobs" className="text-blue-500 hover:text-blue-700 mb-4 block">← Back to Jobs</Link>
+        <Link to="/jobs" className="text-muted-foreground hover:text-foreground mb-6 inline-flex items-center text-sm font-medium transition-colors">
+          <svg className="mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+          </svg>
+          Back to Jobs
+        </Link>
 
         {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6 text-center">
+          <div className="bg-danger/10 border border-danger/20 text-danger px-4 py-3 rounded-md mb-6 text-center text-sm">
             {error}
           </div>
         )}
 
         {/* Job Header */}
-        <div className="bg-white rounded-xl shadow-md hover:shadow-lg transition p-6 mb-6">
-          <div className="flex justify-between items-start mb-4">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-800 mb-2">{job.title}</h1>
-              <p className="text-2xl text-gray-600">{job.company}</p>
+        <Card className="mb-6">
+          <CardContent className="p-6 md:p-8">
+            <div className="flex flex-col md:flex-row md:justify-between md:items-start mb-6 gap-4">
+              <div>
+                <h1 className="text-3xl font-bold text-foreground tracking-tight mb-2">{job.title}</h1>
+                <p className="text-xl text-muted-foreground font-medium">{job.company}</p>
+              </div>
+              <span className="bg-primary/10 text-primary px-4 py-1.5 rounded-md text-sm font-semibold capitalize self-start md:self-auto">
+                {job.employment_type}
+              </span>
             </div>
-            <span className={`px-4 py-2 rounded text-white font-semibold ${
-              job.employment_type === 'internship' ? 'bg-blue-500' :
-              job.employment_type === 'full-time' ? 'bg-green-500' : 'bg-purple-500'
-            }`}>
-              {job.employment_type}
-            </span>
-          </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-            {job.location && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 pt-6 border-t border-border">
+              {job.location && (
+                <div>
+                  <p className="text-muted-foreground text-sm font-medium mb-1">Location</p>
+                  <p className="font-semibold text-foreground">{job.location}</p>
+                </div>
+              )}
+              {job.experience_level && (
+                <div>
+                  <p className="text-muted-foreground text-sm font-medium mb-1">Experience Level</p>
+                  <p className="font-semibold text-foreground capitalize">{job.experience_level}</p>
+                </div>
+              )}
+              {job.salary_range && (
+                <div>
+                  <p className="text-muted-foreground text-sm font-medium mb-1">Salary</p>
+                  <p className="font-semibold text-foreground">{job.salary_range}</p>
+                </div>
+              )}
               <div>
-                <p className="text-gray-600 text-sm">Location</p>
-                <p className="font-semibold">{job.location}</p>
+                <p className="text-muted-foreground text-sm font-medium mb-1">Deadline</p>
+                <p className={`font-semibold ${isExpired ? 'text-danger' : 'text-success'}`}>
+                  {new Date(job.deadline).toLocaleDateString()}
+                </p>
               </div>
-            )}
-            {job.experience_level && (
-              <div>
-                <p className="text-gray-600 text-sm">Experience Level</p>
-                <p className="font-semibold capitalize">{job.experience_level}</p>
-              </div>
-            )}
-            {job.salary_range && (
-              <div>
-                <p className="text-gray-600 text-sm">Salary</p>
-                <p className="font-semibold">{job.salary_range}</p>
-              </div>
-            )}
-            <div>
-              <p className="text-gray-600 text-sm">Deadline</p>
-              <p className={`font-semibold ${isExpired ? 'text-red-500' : 'text-green-500'}`}>
-                {new Date(job.deadline).toLocaleDateString()}
-              </p>
             </div>
-          </div>
 
-          {isExpired && (
-            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-              This job posting has expired.
-            </div>
-          )}
-        </div>
+            {isExpired && (
+              <div className="mt-6 bg-danger/10 border border-danger/20 text-danger px-4 py-3 rounded-md text-sm font-medium">
+                This job posting has expired.
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Job Description */}
-        <div className="bg-white rounded-xl shadow-md hover:shadow-lg transition p-6 mb-6">
-          <h2 className="text-2xl font-bold text-gray-800 mb-4">Job Description</h2>
-          <p className="text-gray-700 whitespace-pre-wrap mb-6">{job.description}</p>
+        <Card className="mb-6">
+          <CardContent className="p-6 md:p-8">
+            <h2 className="text-2xl font-bold text-foreground tracking-tight mb-4">Job Description</h2>
+            <p className="text-muted-foreground whitespace-pre-wrap mb-8 text-base leading-relaxed">{job.description}</p>
 
-          {job.about_company && (
-            <div className="mb-6">
-              <h3 className="text-xl font-bold text-gray-800 mb-2">About Company</h3>
-              <p className="text-gray-700">{job.about_company}</p>
-            </div>
-          )}
-
-          {job.skills_required && job.skills_required?.length > 0 && (
-            <div className="mb-6">
-              <h3 className="text-xl font-bold text-gray-800 mb-3">Required Skills</h3>
-              <div className="flex flex-wrap gap-2">
-                {job.skills_required?.map((skill, idx) => (
-                  <span key={idx} className="bg-blue-100 text-blue-800 px-3 py-1 rounded">
-                    {skill}
-                  </span>
-                ))}
+            {job.about_company && (
+              <div className="mb-8">
+                <h3 className="text-xl font-bold text-foreground mb-3 tracking-tight">About Company</h3>
+                <p className="text-muted-foreground text-base leading-relaxed">{job.about_company}</p>
               </div>
-            </div>
-          )}
+            )}
 
-          {job.benefits && job.benefits?.length > 0 && (
-            <div>
-              <h3 className="text-xl font-bold text-gray-800 mb-3">Benefits</h3>
-              <ul className="list-disc list-inside text-gray-700">
-                {job.benefits?.map((benefit, idx) => (
-                  <li key={idx}>{benefit}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
+            {job.skills_required && job.skills_required?.length > 0 && (
+              <div className="mb-8">
+                <h3 className="text-xl font-bold text-foreground mb-4 tracking-tight">Required Skills</h3>
+                <div className="flex flex-wrap gap-2">
+                  {job.skills_required?.map((skill, idx) => (
+                    <span key={idx} className="bg-secondary text-secondary-foreground border border-border px-3 py-1.5 rounded-md text-sm font-medium">
+                      {skill}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {job.benefits && job.benefits?.length > 0 && (
+              <div>
+                <h3 className="text-xl font-bold text-foreground mb-4 tracking-tight">Benefits</h3>
+                <ul className="list-disc list-inside text-muted-foreground space-y-2 text-base">
+                  {job.benefits?.map((benefit, idx) => (
+                    <li key={idx} className="pl-2">{benefit}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Posted By */}
-        <div className="bg-white rounded-xl shadow-md hover:shadow-lg transition p-6 mb-6">
-          <h2 className="text-2xl font-bold text-gray-800 mb-4">Posted By</h2>
-          <div className="flex items-center gap-4">
-            <div>
-              <p className="text-lg font-semibold text-gray-800">{job.alumni_id?.name}</p>
-              {job.alumni_id?.jobTitle && (
-                <p className="text-gray-600">{job.alumni_id.jobTitle} at {job.alumni_id?.company}</p>
-              )}
-              <button className="mt-2 text-blue-500 hover:text-blue-700">View Profile</button>
+        <Card className="mb-6">
+          <CardContent className="p-6 md:p-8">
+            <h2 className="text-2xl font-bold text-foreground tracking-tight mb-6">Posted By</h2>
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xl uppercase">
+                {job.alumni_id?.name?.charAt(0) || 'A'}
+              </div>
+              <div>
+                <p className="text-lg font-semibold text-foreground">{job.alumni_id?.name}</p>
+                {job.alumni_id?.jobTitle && (
+                  <p className="text-muted-foreground text-sm">{job.alumni_id.jobTitle} at {job.alumni_id?.company}</p>
+                )}
+                <Button variant="link" className="p-0 h-auto mt-1">View Profile</Button>
+              </div>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
         {/* Apply Section */}
         {user?.role === 'student' && !isExpired && (
           <>
             {!showApplyForm ? (
-              <button
+              <Button
                 onClick={() => setShowApplyForm(true)}
                 disabled={hasApplied}
-                className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full py-6 text-lg"
               >
                 {hasApplied ? '✓ Already Applied' : 'Apply for This Job'}
-              </button>
+              </Button>
             ) : (
-              <div className="bg-white rounded-xl shadow-md hover:shadow-lg transition p-6">
-                <h2 className="text-2xl font-bold text-gray-800 mb-4">Apply for {job.title}</h2>
-                <form onSubmit={handleApply} className="space-y-4">
-                  <div>
-                    <label className="block text-gray-700 font-semibold mb-2">Resume/CV Link *</label>
-                    <input
-                      type="url"
-                      value={resumeLink}
-                      onChange={(e) => setResumeLink(e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-                      placeholder="Link to your resume (Google Drive, Dropbox, etc.)"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-gray-700 font-semibold mb-2">Cover Letter</label>
-                    <textarea
-                      value={coverLetter}
-                      onChange={(e) => setCoverLetter(e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-                      rows="5"
-                      placeholder="Tell them why you're a great fit for this role..."
-                    />
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      type="submit"
-                      disabled={applyLoading}
-                      className="flex-1 bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg transition-lg disabled:opacity-50"
-                    >
-                      {applyLoading ? 'Submitting...' : 'Submit Application'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setShowApplyForm(false)}
-                      className="flex-1 bg-gray-400 hover:bg-gray-500 text-white px-6 py-2 rounded-lg"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </form>
-              </div>
+              <Card>
+                <CardContent className="p-6 md:p-8">
+                  <h2 className="text-2xl font-bold text-foreground tracking-tight mb-6">Apply for {job.title}</h2>
+                  <form onSubmit={handleApply} className="space-y-6">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-foreground">Resume/CV Link *</label>
+                      <Input
+                        type="url"
+                        value={resumeLink}
+                        onChange={(e) => setResumeLink(e.target.value)}
+                        placeholder="Link to your resume (Google Drive, Dropbox, etc.)"
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-foreground">Cover Letter</label>
+                      <textarea
+                        value={coverLetter}
+                        onChange={(e) => setCoverLetter(e.target.value)}
+                        className="flex min-h-[120px] w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                        rows="5"
+                        placeholder="Tell them why you're a great fit for this role..."
+                      />
+                    </div>
+                    <div className="flex gap-3 pt-2">
+                      <Button
+                        type="submit"
+                        isLoading={applyLoading}
+                        className="flex-1"
+                      >
+                        Submit Application
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setShowApplyForm(false)}
+                        className="flex-1"
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </form>
+                </CardContent>
+              </Card>
             )}
           </>
         )}
 
         {user?.role === 'alumni' && (
-          <Link to={`/job/${id}/applications`} className="block">
-            <button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition">
+          <Link to={`/job/${id}/applications`} className="block mt-6">
+            <Button className="w-full py-6 text-lg">
               View Applications
-            </button>
+            </Button>
           </Link>
         )}
     </>
